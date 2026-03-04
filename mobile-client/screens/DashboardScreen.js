@@ -1,48 +1,42 @@
-import { Button, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from "react-native";
+import PageLayout from "../components/PageLayout";
 
-export default function DashboardScreen({ navigation }) {
+export default function DashboardScreen() {
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Customer Dashboard</Text>
+    <PageLayout
+      title="Welcome back!"
+      subtitle="Here's a quick overview of your accounts and recent activity."
+    >
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Checking Account</Text>
+        <Text>Account Number: ••••1234</Text>
+        <Text>Balance: $2,100.20</Text>
+        <Text>Status: Active</Text>
+      </View>
 
-      <Text style={styles.balance}>Total Balance: $4,230.54</Text>
-
-      <Button
-        title="View Accounts"
-        onPress={() => navigation.navigate('Accounts')}
-      />
-
-      <View style={{ height: 10 }} />
-
-      <Button
-        title="Transfer Money"
-        onPress={() => navigation.navigate('Transfer')}
-      />
-
-      <View style={{ height: 10 }} />
-
-      <Button
-        title="Find ATM"
-        onPress={() => navigation.navigate('ATM')}
-      />
-    </View>
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Savings Account</Text>
+        <Text>Account Number: ••••8832</Text>
+        <Text>Balance: $2,130.34</Text>
+        <Text>Status: Active</Text>
+      </View>
+    </PageLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  card: {
+    backgroundColor: "white",
     padding: 20,
-    justifyContent: 'center',
+    borderRadius: 12,
+    marginBottom: 15,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
   },
-  title: {
-    fontSize: 22,
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  balance: {
-    fontSize: 18,
-    marginBottom: 30,
-    textAlign: 'center',
+  cardTitle: {
+    fontWeight: "bold",
+    marginBottom: 5,
   },
 });

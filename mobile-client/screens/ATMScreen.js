@@ -1,47 +1,65 @@
-import { Button, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useState } from "react";
+import { Button, StyleSheet, Text, TextInput, View } from "react-native";
+import PageLayout from "../components/PageLayout";
 
-export default function TransferScreen() {
+export default function ATMScreen() {
+  const [city, setCity] = useState("");
+  const [searched, setSearched] = useState(false);
+
+  const results = [
+    "123 MLK Library, San Jose, CA",
+    "456 Market St, San Jose, CA",
+  ];
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Transfer Money</Text>
+    <PageLayout title="Find Nearby ATM">
+      <View style={styles.card}>
+        <TextInput
+          placeholder="Enter City or Zip Code"
+          value={city}
+          onChangeText={setCity}
+          style={styles.input}
+        />
 
-      <TextInput
-        placeholder="To Account Number"
-        style={styles.input}
-      />
+        <Button title="Search" onPress={() => setSearched(true)} />
+      </View>
 
-      <TextInput
-        placeholder="Routing Number"
-        style={styles.input}
-      />
+      {searched && (
+        <View style={{ marginTop: 20 }}>
+          <Text style={{ fontWeight: "bold", marginBottom: 10 }}>Results:</Text>
 
-      <TextInput
-        placeholder="Amount"
-        keyboardType="numeric"
-        style={styles.input}
-      />
-
-      <Button title="Submit Transfer" onPress={() => alert('Transfer Submitted')} />
-    </View>
+          {results.map((atm, i) => (
+            <View key={i} style={styles.result}>
+              <Text>{atm}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+    </PageLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  card: {
+    backgroundColor: "white",
     padding: 20,
-    justifyContent: 'center',
-  },
-  title: {
-    fontSize: 22,
-    marginBottom: 20,
-    textAlign: 'center',
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: "#ccc",
     padding: 10,
     marginBottom: 15,
-    borderRadius: 5,
+    borderRadius: 6,
+  },
+  result: {
+    backgroundColor: "white",
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 8,
   },
 });
