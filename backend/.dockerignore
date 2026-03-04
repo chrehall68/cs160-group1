@@ -1,0 +1,3 @@
+# Ignore Python bytecode and cache directories
+.venv
+__pycache__

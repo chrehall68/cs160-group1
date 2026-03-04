@@ -1,0 +1,12 @@
+FROM python:3.12-alpine AS base
+
+WORKDIR /app
+
+COPY ./requirements.txt /app/requirements.txt
+
+RUN pip install -r requirements.txt
+
+
+# expects that the actual source code is mounted at runtime, so we don't copy it here
+EXPOSE 8000
+CMD ["fastapi", "dev", "app.py", "--host", "0.0.0.0"]

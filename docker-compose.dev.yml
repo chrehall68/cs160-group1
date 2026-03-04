@@ -1,0 +1,35 @@
+services:
+  frontend:
+    build:
+      context: ./web-client
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./web-client:/app
+      - /app/node_modules
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    ports:
+      - "8000:8000"
+    environment:
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_LOCATION: database
+      DB_NAME: postgres
+    volumes:
+      - ./backend:/app
+
+  database:
+    image: postgres:17
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    volumes:
+      - ./db/createdb.sql:/docker-entrypoint-initdb.d/createdb.sql
