@@ -31,10 +31,10 @@ npm start
 ```
 
 Runs on:
+
 ```
 http://localhost:3000
 ```
-
 
 ### To Run Mobile Client
 
@@ -45,18 +45,36 @@ npm start
 ```
 
 Then:
+
 - Press `w` for web preview
 - Press `a` for Android emulator
 - Or scan QR code with Expo Go
 
+### To Run All Services with Docker Compose
 
+To run the web client, backend, and database together in development mode:
+
+```bash
+docker compose -f docker-compose.dev.yml up --build
+```
+
+This will start:
+
+- **Frontend** (Web Client): `http://localhost:3000`
+- **Backend API**: `http://localhost:8000`
+- **Database** (PostgreSQL): `localhost:5432`
+
+To stop all services:
+
+```bash
+docker compose -f docker-compose.dev.yml down
+```
 
 # Team Members
 
-- Arian Bahram  
-- Christian Her  
-- Eliot Hall  
-- Tan Nam Ngo  
-- Tristan Brennan-Evans  
-- Aayush Kumar  
-
+- Arian Bahram
+- Christian Her
+- Eliot Hall
+- Tan Nam Ngo
+- Tristan Brennan-Evans
+- Aayush Kumar
