@@ -20,6 +20,9 @@ services:
       DB_PASSWORD: postgres
       DB_LOCATION: database
       DB_NAME: postgres
+    depends_on:
+      database:
+        condition: service_healthy
     volumes:
       - ./backend:/app
 
@@ -31,5 +34,9 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: postgres
-    volumes:
-      - ./db/createdb.sql:/docker-entrypoint-initdb.d/createdb.sql
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 1m
+      timeout: 10s
+      retries: 5
+      start_period: 10s
