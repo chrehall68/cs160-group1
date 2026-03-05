@@ -105,12 +105,11 @@ class User(SQLModel, table=True):
         sa_type=BigInteger,
         ondelete="SET NULL",
     )
-    customer: Optional["Customer"] = Relationship(back_populates="user")
+    customer: Optional["Customer"] = Relationship()
 
     # login fields
     username: str = Field(unique=True, max_length=150)
-    password_hash: str = Field(max_length=255)
-    salt: str = Field(max_length=255)
+    password_hash: bytes  # no need for salt since bcrypt includes it in the hash
     # info fields
     role: UserRole = Field(default=UserRole.USER, max_length=5)
     last_login: datetime = Field(default_factory=utcnow)
@@ -148,7 +147,7 @@ class Customer(SQLModel, table=True):
         foreign_key="address.address_id",
         nullable=True,
     )
-    address: "Address" = Relationship(back_populates="customer")
+    address: "Address" = Relationship()
     ssn: str = Field(max_length=9)
     kyc_status: KYCStatus = Field(default=KYCStatus.PENDING, max_length=10)
 
@@ -187,7 +186,7 @@ class Account(SQLModel, table=True):
         sa_type=BigInteger,
         ondelete="CASCADE",
     )
-    customer: Customer = Relationship(back_populates="account")
+    customer: Customer = Relationship()
 
     # info fields
     account_number: str = Field(unique=True, max_length=64)
@@ -214,7 +213,7 @@ class ATM(SQLModel, table=True):
         sa_type=BigInteger,
         nullable=False,
     )
-    address: Address = Relationship(back_populates="atm")
+    address: Address = Relationship()
     status: ATMStatus = Field(default=ATMStatus.ACTIVE, max_length=15)
 
 
@@ -233,7 +232,7 @@ class Transaction(SQLModel, table=True):
         nullable=False,
         ondelete="CASCADE",
     )
-    account: Account = Relationship(back_populates="transactions")
+    account: Account = Relationship()
 
     # Note: ommitted reference number
     # and skipping "fee" and "adjustment" since those aren't
@@ -263,9 +262,7 @@ class RecurringPayment(SQLModel, table=True):
         sa_type=BigInteger,
         ondelete="CASCADE",
     )
-    from_account: Account = Relationship(
-        back_populates="recurring_payments",
-    )
+    from_account: Account = Relationship()
 
     # info fields
     payee_account_number: str = Field(max_length=64)
@@ -297,14 +294,14 @@ class Withdraw(SQLModel, table=True):
         sa_type=BigInteger,
         ondelete="CASCADE",
     )
-    transaction: Transaction = Relationship(back_populates="withdraw")
+    transaction: Transaction = Relationship()
     atm_id: int = Field(
         foreign_key="atm.atm_id",
         nullable=False,
         sa_type=BigInteger,
         ondelete="CASCADE",
     )
-    atm: ATM = Relationship(back_populates="withdraw")
+    atm: ATM = Relationship()
 
 
 # ledger entries
@@ -323,7 +320,7 @@ class LedgerEntry(SQLModel, table=True):
         sa_type=BigInteger,
         ondelete="CASCADE",
     )
-    transaction: Transaction = Relationship(back_populates="ledger_entry")
+    transaction: Transaction = Relationship()
     account_id: int = Field(
         index=True,
         foreign_key="account.account_id",
@@ -331,7 +328,7 @@ class LedgerEntry(SQLModel, table=True):
         sa_type=BigInteger,
         ondelete="CASCADE",
     )
-    account: Account = Relationship(back_populates="ledger_entries")
+    account: Account = Relationship()
     type: LedgerType = Field(max_length=6)
     # for amount, currency, and created_at, just check transaction
     # since otherwise this would be redundant and could lead to inconsistencies
@@ -357,7 +354,7 @@ class Transfer(SQLModel, table=True):
         sa_type=BigInteger,
         ondelete="CASCADE",
     )
-    transaction: Transaction = Relationship(back_populates="transfer")
+    transaction: Transaction = Relationship()
     type: TransferType = Field(max_length=8)
     direction: TransferDirection = Field(max_length=8)
 
@@ -379,14 +376,14 @@ class ATMDeposit(SQLModel, table=True):
         sa_type=BigInteger,
         ondelete="CASCADE",
     )
-    transaction: Transaction = Relationship(back_populates="deposit")
+    transaction: Transaction = Relationship()
     atm_id: int = Field(
         foreign_key="atm.atm_id",
         nullable=False,
         sa_type=BigInteger,
         ondelete="CASCADE",
     )
-    atm: ATM = Relationship(back_populates="deposit")
+    atm: ATM = Relationship()
     type: DepositType = Field(max_length=8)
 
 
@@ -406,7 +403,7 @@ class OnlineDeposit(SQLModel, table=True):
         sa_type=BigInteger,
         ondelete="CASCADE",
     )
-    transaction: Transaction = Relationship(back_populates="online_deposit")
+    transaction: Transaction = Relationship()
     check_number: str = Field(max_length=64, unique=True)
     check_image_path: str = Field(max_length=512, unique=True)
 
@@ -429,7 +426,7 @@ class AuditLog(SQLModel, table=True):
         sa_type=BigInteger,
         ondelete="SET NULL",
     )
-    user: User = Relationship(back_populates="audit_logs")
+    user: User = Relationship()
     action: str = Field(max_length=255)
     object_type: str = Field(max_length=50)
     object_id: int = Field(sa_column=Column(BigInteger(), nullable=False))

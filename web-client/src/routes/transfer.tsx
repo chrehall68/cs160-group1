@@ -9,11 +9,20 @@ function Transfer() {
   const [toAccount, setToAccount] = useState('')
   const [routingNumber, setRoutingNumber] = useState('')
   const [amount, setAmount] = useState('')
+  const [isRecurring, setIsRecurring] = useState(false)
+  const [frequency, setFrequency] = useState('weekly')
+  const [startDate, setStartDate] = useState('')
 
   const handleSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     // transfer logic stub
-    alert('Transfer submitted!')
+    if (isRecurring) {
+      alert(
+        `Recurring ${frequency} transfer submitted! Starting on ${startDate}`,
+      )
+    } else {
+      alert('Transfer submitted!')
+    }
   }
 
   return (
@@ -73,6 +82,48 @@ function Transfer() {
             required
           />
         </div>
+
+        <div className="border-t pt-4">
+          <label className="flex items-center">
+            <input
+              type="checkbox"
+              checked={isRecurring}
+              onChange={(e) => setIsRecurring(e.target.checked)}
+              className="h-4 w-4 rounded"
+            />
+            <span className="ml-2 text-sm font-medium">
+              Set up recurring transfer
+            </span>
+          </label>
+        </div>
+
+        {isRecurring && (
+          <div className="space-y-4 rounded-lg bg-gray-50 p-4">
+            <div>
+              <label className="block text-sm font-medium">Frequency:</label>
+              <select
+                value={frequency}
+                onChange={(e) => setFrequency(e.target.value)}
+                className="mt-1 w-full rounded border px-3 py-2"
+              >
+                <option value="weekly">Weekly</option>
+                <option value="biweekly">Biweekly</option>
+                <option value="monthly">Monthly</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium">Start Date:</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="mt-1 w-full rounded border px-3 py-2"
+                required={isRecurring}
+              />
+            </div>
+          </div>
+        )}
 
         <button
           type="submit"

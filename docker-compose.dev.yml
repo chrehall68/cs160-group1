@@ -20,6 +20,7 @@ services:
       DB_PASSWORD: postgres
       DB_LOCATION: database
       DB_NAME: postgres
+      JWT_SECRET_KEY: 528482b94c0521c37c2a3c2e749f435c00790e891c076cbe9aafbcc00a546302
     depends_on:
       database:
         condition: service_healthy
