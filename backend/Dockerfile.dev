@@ -9,4 +9,4 @@ RUN pip install -r requirements.txt
 
 # expects that the actual source code is mounted at runtime, so we don't copy it here
 EXPOSE 8000
-CMD ["fastapi", "dev", "app.py", "--host", "0.0.0.0"]
+CMD ["fastapi", "dev", "src/app.py", "--host", "0.0.0.0"]
