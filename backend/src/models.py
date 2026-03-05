@@ -109,8 +109,7 @@ class User(SQLModel, table=True):
 
     # login fields
     username: str = Field(unique=True, max_length=150)
-    password_hash: str = Field(max_length=255)
-    salt: str = Field(max_length=255)
+    password_hash: bytes  # no need for salt since bcrypt includes it in the hash
     # info fields
     role: UserRole = Field(default=UserRole.USER, max_length=5)
     last_login: datetime = Field(default_factory=utcnow)
