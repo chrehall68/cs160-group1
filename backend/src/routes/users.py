@@ -1,3 +1,5 @@
+import sys
+import traceback
 from fastapi import APIRouter, HTTPException, status, Response, Request
 from sqlmodel import select
 from dependencies.db import SessionDep
@@ -44,7 +46,7 @@ def login(request: LoginRequest, session: SessionDep, response: Response):
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="User ID not found",
             )
-        access_token = create_access_token(user.user_id)
+        access_token = create_access_token(user.user_id, user.role)
 
         # Set JWT as httponly cookie
         response.set_cookie(
@@ -140,7 +142,7 @@ def register(request: RegisterRequest, session: SessionDep, response: Response):
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to insert user",
             )
-        access_token = create_access_token(user.user_id)
+        access_token = create_access_token(user.user_id, user.role)
 
         # Set JWT as httponly cookie
         response.set_cookie(
@@ -158,9 +160,10 @@ def register(request: RegisterRequest, session: SessionDep, response: Response):
         raise
     except Exception as e:
         session.rollback()
+        traceback.print_exc(file=sys.stderr)
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred",
         )
 
 
@@ -168,7 +171,7 @@ def register(request: RegisterRequest, session: SessionDep, response: Response):
 def delete_user(
     user_id: int,
     session: SessionDep,
-    current_user_id: AuthDep,
+    user_info: AuthDep,
     response: Response,
 ):
     """
@@ -177,7 +180,8 @@ def delete_user(
     """
     try:
         # check that the user is deleting their own account
-        if current_user_id != user_id:
+        # or this is an admin
+        if user_info != user_id and user_info.role != "admin":
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Cannot delete another user's account",
@@ -217,11 +221,15 @@ def delete_user(
         return {}
 
     except HTTPException:
+        session.rollback()
         raise
     except Exception as e:
+        session.rollback()
+        traceback.print_exc(file=sys.stderr)
+
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred",
         )
 
 
@@ -246,7 +254,8 @@ def logout(request_obj: Request, response: Response):
     except HTTPException:
         raise
     except Exception as e:
+        traceback.print_exc(file=sys.stderr)
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred",
         )
