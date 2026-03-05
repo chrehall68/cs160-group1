@@ -1,11 +1,12 @@
 import os
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Optional, Annotated
 import bcrypt
 import jwt
-from fastapi import HTTPException, status
+from fastapi import HTTPException, status, Depends
 from fastapi.requests import Request
 
+# somewhat taken from https://fastapi.tiangolo.com/tutorial/security/oauth2-jwt/
 # JWT config
 SECRET_KEY = os.getenv("JWT_SECRET_KEY")
 ALGORITHM = "HS256"
@@ -122,3 +123,6 @@ def get_current_user_id(request: Request) -> int:
         )
     user_id = int(user_id_str)
     return user_id
+
+
+AuthDep = Annotated[int, Depends(get_current_user_id)]
