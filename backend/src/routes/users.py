@@ -62,7 +62,11 @@ def login(request: LoginRequest, session: SessionDep, response: Response):
         session.add(user)
         session.commit()
 
-        return {}
+        return {
+            "access_token": access_token,
+            "role": user.role.value,
+            "user_id": user.user_id,
+        }
 
     except HTTPException:
         raise
@@ -153,7 +157,11 @@ def register(request: RegisterRequest, session: SessionDep, response: Response):
             samesite="strict",
         )
 
-        return {"user": user.user_id}
+        return {
+            "access_token": access_token,
+            "role": user.role.value,
+            "user_id": user.user_id,
+        }
 
     except HTTPException:
         session.rollback()

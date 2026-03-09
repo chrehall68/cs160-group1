@@ -1,7 +1,13 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
+import { isAuthenticated } from '../lib/auth'
 import { useState } from 'react'
 
 export const Route = createFileRoute('/atm')({
+  beforeLoad: () => {
+    if (!isAuthenticated()) {
+      throw redirect({ to: '/login' })
+    }
+  },
   component: ATM,
 })
 export default function ATM() {

@@ -1,7 +1,17 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useState } from 'react'
+import { isAdmin, isAuthenticated } from '../lib/auth'
 
 export const Route = createFileRoute('/manager')({
+  beforeLoad: () => {
+    if (!isAuthenticated()) {
+      throw redirect({ to: '/login' })
+    }
+
+    if (!isAdmin()) {
+      throw redirect({ to: '/dashboard' })
+    }
+  },
   component: ManagerDashboard,
 })
 
