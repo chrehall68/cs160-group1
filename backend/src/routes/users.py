@@ -189,7 +189,8 @@ def delete_user(
     try:
         # check that the user is deleting their own account
         # or this is an admin
-        if user_info != user_id and user_info.role != "admin":
+        print(user_info, file=sys.stderr)
+        if user_info.user_id != user_id and user_info.role != "admin":
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Cannot delete another user's account",
