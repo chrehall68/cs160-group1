@@ -65,6 +65,34 @@ def test_login_returns_token_for_existing_user(client):
     assert "access_token=" in login_response.headers["set-cookie"]
 
 
+def test_login_rejects_invalid_username_or_password(client):
+    payload = _register_payload()
+    register_response = client.post("/user", json=payload)
+
+    assert register_response.status_code == 200
+
+    invalid_username_response = client.post(
+        "/login",
+        json={"username": f'{payload["username"]}_wrong', "password": payload["password"]},
+    )
+    invalid_password_response = client.post(
+        "/login",
+        json={"username": payload["username"], "password": "WrongPassword123!"},
+    )
+
+    assert invalid_username_response.status_code == 400
+    assert invalid_username_response.json() == {
+        "detail": "Invalid username or password"
+    }
+    assert "set-cookie" not in invalid_username_response.headers
+
+    assert invalid_password_response.status_code == 400
+    assert invalid_password_response.json() == {
+        "detail": "Invalid username or password"
+    }
+    assert "set-cookie" not in invalid_password_response.headers
+
+
 def test_delete_user_allows_authenticated_owner_without_open_accounts(client):
     payload = _register_payload()
     register_response = client.post("/user", json=payload)
