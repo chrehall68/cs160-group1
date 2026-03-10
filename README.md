@@ -70,6 +70,23 @@ To stop all services:
 docker compose -f docker-compose.dev.yml down
 ```
 
+### To Run Backend Integration Tests
+
+The backend integration tests use `testcontainers` to start a real PostgreSQL
+database automatically. They do not use an in-memory database, because the app
+is built around PostgreSQL-specific behavior.
+
+To run the backend tests:
+
+```bash
+cd backend
+uv pip install -r requirements.txt --python .venv/bin/python
+./.venv/bin/python -m pytest tests
+```
+
+Docker must be running locally because `testcontainers` starts a temporary
+PostgreSQL container for the test session.
+
 # Team Members
 
 - Arian Bahram

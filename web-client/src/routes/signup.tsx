@@ -1,28 +1,40 @@
-import { createFileRoute, useRouter } from '@tanstack/react-router'
-import { useState } from 'react'
+import {
+  Link,
+  createFileRoute,
+  redirect,
+  useRouter,
+} from '@tanstack/react-router'
+import { useEffect, useState } from 'react'
+import { isAuthenticated, setAuthSession } from '../lib/auth'
 
 export const Route = createFileRoute('/signup')({
+  beforeLoad: () => {
+    if (isAuthenticated()) {
+      throw redirect({ to: '/dashboard' })
+    }
+  },
   component: SignUp,
 })
+
+interface SignupResponse {
+  access_token: string
+  role: 'user' | 'admin'
+}
+
+const digitsOnly = (value: string) => value.replace(/\D/g, '')
 
 function SignUp() {
   const router = useRouter()
 
-  // User fields
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-
-  // Customer fields
-  const [customerType, setCustomerType] = useState('individual')
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [dateOfBirth, setDateOfBirth] = useState('')
   const [email, setEmail] = useState('')
   const [phoneNumber, setPhoneNumber] = useState('')
   const [ssn, setSSN] = useState('')
-
-  // Address fields
   const [street, setStreet] = useState('')
   const [unit, setUnit] = useState('')
   const [city, setCity] = useState('')
@@ -30,26 +42,85 @@ function SignUp() {
   const [zipCode, setZipCode] = useState('')
   const [country, setCountry] = useState('USA')
 
-  const [error, setError] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  // scroll to top when there's an error
+  useEffect(() => {
+    if (error) {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }, [error])
+
+  const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
-    setError('')
+    setError(null)
 
-    // Validation
+    // some basic client-side validation
     if (password !== confirmPassword) {
       setError('Passwords do not match')
       return
     }
 
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters')
-      return
-    }
+    setIsSubmitting(true)
+    try {
+      const response = await fetch('/api/user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username,
+          password,
+          first_name: firstName,
+          last_name: lastName,
+          date_of_birth: dateOfBirth,
+          email,
+          phone: phoneNumber,
+          ssn,
+          address: {
+            street,
+            unit,
+            city,
+            state,
+            zipcode: zipCode,
+            country,
+          },
+        }),
+      })
 
-    // TODO - Send signup request to backend
-    // For now, navigate to dashboard
-    router.navigate({ to: '/dashboard' })
+      if (!response.ok) {
+        if (response.status === 422) {
+          const data = await response.json().catch(() => null)
+          const details = Array.isArray(data?.detail)
+            ? data.detail
+                .map((issue: { msg?: string }) => issue.msg)
+                .filter(Boolean)
+            : []
+          setError(
+            details.length > 0
+              ? `Failed to create account: ${details.join(', ')}`
+              : 'Failed to create account. Please check your form values.',
+          )
+          return
+        }
+
+        const data = await response.json().catch(() => null)
+        setError(data?.detail ?? 'Failed to create account. Please try again.')
+        return
+      }
+
+      const data = (await response.json()) as SignupResponse
+      if (!data.access_token) {
+        setError('Account created but auth session could not be created')
+        return
+      }
+
+      setAuthSession(data.access_token, data.role)
+      router.navigate({ to: '/dashboard' })
+    } catch {
+      setError('Failed to create account. Please try again.')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -64,7 +135,6 @@ function SignUp() {
           <div className="rounded bg-red-100 p-3 text-red-700">{error}</div>
         )}
 
-        {/* Login Credentials Section */}
         <div className="border-t pt-6">
           <h3 className="mb-4 text-lg font-semibold">Login Information</h3>
 
@@ -87,7 +157,7 @@ function SignUp() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="mt-1 w-full rounded border px-3 py-2"
-              placeholder="At least 8 characters"
+              placeholder="Choose a password"
               required
             />
           </div>
@@ -107,22 +177,8 @@ function SignUp() {
           </div>
         </div>
 
-        {/* Personal Information Section */}
         <div className="border-t pt-6">
           <h3 className="mb-4 text-lg font-semibold">Personal Information</h3>
-
-          <div>
-            <label className="block text-sm font-medium">Account Type</label>
-            <select
-              value={customerType}
-              onChange={(e) => setCustomerType(e.target.value)}
-              className="mt-1 w-full rounded border px-3 py-2"
-              required
-            >
-              <option value="individual">Individual</option>
-              <option value="business">Business</option>
-            </select>
-          </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -178,9 +234,14 @@ function SignUp() {
             <input
               type="tel"
               value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value)}
+              onChange={(e) =>
+                setPhoneNumber(digitsOnly(e.target.value).slice(0, 10))
+              }
               className="mt-1 w-full rounded border px-3 py-2"
-              placeholder="(123) 456-7890"
+              placeholder="1234567890"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={10}
               required
             />
           </div>
@@ -190,16 +251,17 @@ function SignUp() {
             <input
               type="text"
               value={ssn}
-              onChange={(e) => setSSN(e.target.value)}
+              onChange={(e) => setSSN(digitsOnly(e.target.value).slice(0, 9))}
               className="mt-1 w-full rounded border px-3 py-2"
-              placeholder="XXX-XX-XXXX"
-              maxLength={11}
+              placeholder="123456789"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={9}
               required
             />
           </div>
         </div>
 
-        {/* Address Section */}
         <div className="border-t pt-6">
           <h3 className="mb-4 text-lg font-semibold">Address</h3>
 
@@ -258,9 +320,14 @@ function SignUp() {
               <input
                 type="text"
                 value={zipCode}
-                onChange={(e) => setZipCode(e.target.value)}
+                onChange={(e) =>
+                  setZipCode(digitsOnly(e.target.value).slice(0, 5))
+                }
                 className="mt-1 w-full rounded border px-3 py-2"
                 placeholder="Zip code"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={5}
                 required
               />
             </div>
@@ -279,23 +346,23 @@ function SignUp() {
           </div>
         </div>
 
-        {/* Submit and Link Section */}
         <div className="border-t pt-6 space-y-4">
           <button
             type="submit"
+            disabled={isSubmitting}
             className="w-full rounded bg-[var(--lagoon)] px-4 py-2 font-semibold text-white hover:bg-[var(--lagoon-deep)]"
           >
-            Create Account
+            {isSubmitting ? 'Creating Account...' : 'Create Account'}
           </button>
 
           <p className="text-center text-sm">
             Already have an account?{' '}
-            <a
-              href="/login"
+            <Link
+              to="/login"
               className="text-[var(--lagoon)] hover:underline font-semibold"
             >
               Sign in
-            </a>
+            </Link>
           </p>
         </div>
       </form>

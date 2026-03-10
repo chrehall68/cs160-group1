@@ -62,7 +62,11 @@ def login(request: LoginRequest, session: SessionDep, response: Response):
         session.add(user)
         session.commit()
 
-        return {}
+        return {
+            "access_token": access_token,
+            "role": user.role.value,
+            "user_id": user.user_id,
+        }
 
     except HTTPException:
         raise
@@ -153,7 +157,11 @@ def register(request: RegisterRequest, session: SessionDep, response: Response):
             samesite="strict",
         )
 
-        return {"user": user.user_id}
+        return {
+            "access_token": access_token,
+            "role": user.role.value,
+            "user_id": user.user_id,
+        }
 
     except HTTPException:
         session.rollback()
@@ -181,7 +189,8 @@ def delete_user(
     try:
         # check that the user is deleting their own account
         # or this is an admin
-        if user_info != user_id and user_info.role != "admin":
+        print(user_info, file=sys.stderr)
+        if user_info.user_id != user_id and user_info.role != "admin":
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Cannot delete another user's account",
