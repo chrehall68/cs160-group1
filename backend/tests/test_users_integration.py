@@ -1,4 +1,5 @@
 from uuid import uuid4
+from datetime import date
 
 
 def _register_payload(username: str | None = None) -> dict:
@@ -44,6 +45,44 @@ def test_register_rejects_duplicate_username(client):
     assert first_response.status_code == 200
     assert second_response.status_code == 400
     assert second_response.json() == {"detail": "Username already exists"}
+
+
+def test_register_rejects_user_younger_than_18(client):
+    payload = _register_payload()
+    today = date.today()
+    underage_dob = today.replace(year=today.year - 17).isoformat()
+
+    response = client.post("/user", json={**payload, "date_of_birth": underage_dob})
+
+    assert response.status_code == 422
+
+    body = response.json()
+    assert body["detail"][0]["loc"] == ["body", "date_of_birth"]
+    assert body["detail"][0]["msg"] == "Value error, User must be at least 18 years old"
+
+
+def test_register_rejects_phone_number_with_wrong_length(client):
+    payload = _register_payload()
+
+    response = client.post("/user", json={**payload, "phone": "555123456"})
+
+    assert response.status_code == 422
+
+    body = response.json()
+    assert body["detail"][0]["loc"] == ["body", "phone"]
+    assert body["detail"][0]["msg"] == "Value error, Phone number must be 10 digits"
+
+
+def test_register_rejects_ssn_with_wrong_length(client):
+    payload = _register_payload()
+
+    response = client.post("/user", json={**payload, "ssn": "12345678"})
+
+    assert response.status_code == 422
+
+    body = response.json()
+    assert body["detail"][0]["loc"] == ["body", "ssn"]
+    assert body["detail"][0]["msg"] == "Value error, SSN must be 9 digits"
 
 
 def test_login_returns_token_for_existing_user(client):

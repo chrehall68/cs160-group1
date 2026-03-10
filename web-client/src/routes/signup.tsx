@@ -4,7 +4,7 @@ import {
   redirect,
   useRouter,
 } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { isAuthenticated, setAuthSession } from '../lib/auth'
 
 export const Route = createFileRoute('/signup')({
@@ -44,6 +44,13 @@ function SignUp() {
 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // scroll to top when there's an error
+  useEffect(() => {
+    if (error) {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }, [error])
 
   const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
