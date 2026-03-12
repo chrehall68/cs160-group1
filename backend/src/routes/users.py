@@ -77,6 +77,37 @@ def login(request: LoginRequest, session: SessionDep, response: Response):
         )
 
 
+@router.get("/customer")
+def get_user_info(user_info: AuthDep, session: SessionDep):
+    """
+    GET /customer
+    Returns the current user's attached customer's nonsensitive information.
+    Requires authentication.
+    """
+
+    user = session.get(User, user_info.user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+    # just in case the user deleted their customer info
+    if not user.customer_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User has no customer information",
+        )
+    customer = user.customer
+    assert customer is not None  # for mypy
+
+    return {
+        "first_name": customer.first_name,
+        "last_name": customer.last_name,
+        "email": customer.email,
+        "phone": customer.phone_number,
+    }
+
+
 @router.post("/user")
 def register(request: RegisterRequest, session: SessionDep, response: Response):
     """

@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TransferRouteImport } from './routes/transfer'
 import { Route as SignupRouteImport } from './routes/signup'
+import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as ManagerRouteImport } from './routes/manager'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardRouteImport } from './routes/dashboard'
@@ -27,6 +28,11 @@ const TransferRoute = TransferRouteImport.update({
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
   path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ManagerRoute = ManagerRouteImport.update({
@@ -73,6 +79,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/manager': typeof ManagerRoute
+  '/profile': typeof ProfileRoute
   '/signup': typeof SignupRoute
   '/transfer': typeof TransferRoute
 }
@@ -84,6 +91,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/manager': typeof ManagerRoute
+  '/profile': typeof ProfileRoute
   '/signup': typeof SignupRoute
   '/transfer': typeof TransferRoute
 }
@@ -96,6 +104,7 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/manager': typeof ManagerRoute
+  '/profile': typeof ProfileRoute
   '/signup': typeof SignupRoute
   '/transfer': typeof TransferRoute
 }
@@ -109,6 +118,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/manager'
+    | '/profile'
     | '/signup'
     | '/transfer'
   fileRoutesByTo: FileRoutesByTo
@@ -120,6 +130,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/manager'
+    | '/profile'
     | '/signup'
     | '/transfer'
   id:
@@ -131,6 +142,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/manager'
+    | '/profile'
     | '/signup'
     | '/transfer'
   fileRoutesById: FileRoutesById
@@ -143,6 +155,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   LoginRoute: typeof LoginRoute
   ManagerRoute: typeof ManagerRoute
+  ProfileRoute: typeof ProfileRoute
   SignupRoute: typeof SignupRoute
   TransferRoute: typeof TransferRoute
 }
@@ -161,6 +174,13 @@ declare module '@tanstack/react-router' {
       path: '/signup'
       fullPath: '/signup'
       preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/manager': {
@@ -223,6 +243,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   LoginRoute: LoginRoute,
   ManagerRoute: ManagerRoute,
+  ProfileRoute: ProfileRoute,
   SignupRoute: SignupRoute,
   TransferRoute: TransferRoute,
 }

@@ -1,4 +1,5 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
+import { useEffect, useState } from 'react'
 import { isAuthenticated } from '../lib/auth'
 
 export const Route = createFileRoute('/dashboard')({
@@ -10,10 +11,24 @@ export const Route = createFileRoute('/dashboard')({
   component: Dashboard,
 })
 function Dashboard() {
+  const [name, setName] = useState('')
+
+  useEffect(() => {
+    fetch('/api/customer')
+      .then((res) => res.json())
+      .then((data) => {
+        const firstName = data.first_name || 'User'
+        setName(firstName)
+      })
+      .catch((err) => {
+        console.error('Error fetching user info:', err)
+        setName('User')
+      })
+  }, [])
   return (
     <main className="page-wrap px-4 pb-8 pt-14">
       <section className="space-y-6">
-        <h2 className="text-2xl font-bold">Welcome back!</h2>
+        <h2 className="text-2xl font-bold">Welcome back {name}!</h2>
         <p className="text-lg text-[var(--sea-ink-soft)]">
           Here's a quick overview of your accounts and recent activity.
         </p>
