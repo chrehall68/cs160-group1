@@ -10,7 +10,7 @@ afterEach(() => {
 
 describe('useAuthSession', () => {
   it('returns the same snapshot object when auth state has not changed', () => {
-    setAuthSession('token-123', 'user')
+    setAuthSession('token-123', 'user', 12)
 
     const { result, rerender } = renderHook(() => useAuthSession())
     const firstSnapshot = result.current
@@ -25,10 +25,14 @@ describe('useAuthSession', () => {
     const firstSnapshot = result.current
 
     act(() => {
-      setAuthSession('token-123', 'admin')
+      setAuthSession('token-123', 'admin', 42)
     })
 
     expect(result.current).not.toBe(firstSnapshot)
-    expect(result.current).toEqual({ token: 'token-123', role: 'admin' })
+    expect(result.current).toEqual({
+      token: 'token-123',
+      role: 'admin',
+      userId: 42,
+    })
   })
 })

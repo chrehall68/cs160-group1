@@ -19,6 +19,7 @@ export const Route = createFileRoute('/signup')({
 interface SignupResponse {
   access_token: string
   role: 'user' | 'admin'
+  user_id: number
 }
 
 const digitsOnly = (value: string) => value.replace(/\D/g, '')
@@ -109,12 +110,12 @@ function SignUp() {
       }
 
       const data = (await response.json()) as SignupResponse
-      if (!data.access_token) {
+      if (!data.access_token || !data.user_id) {
         setError('Account created but auth session could not be created')
         return
       }
 
-      setAuthSession(data.access_token, data.role)
+      setAuthSession(data.access_token, data.role, data.user_id)
       router.navigate({ to: '/dashboard' })
     } catch {
       setError('Failed to create account. Please try again.')

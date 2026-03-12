@@ -19,6 +19,7 @@ export const Route = createFileRoute('/login')({
 interface LoginResponse {
   access_token: string
   role: 'user' | 'admin'
+  user_id: number
 }
 
 function Login() {
@@ -47,12 +48,12 @@ function Login() {
       }
 
       const data = (await response.json()) as LoginResponse
-      if (!data.access_token) {
+      if (!data.access_token || !data.user_id) {
         setError('Login succeeded but auth session could not be created')
         return
       }
 
-      setAuthSession(data.access_token, data.role)
+      setAuthSession(data.access_token, data.role, data.user_id)
       router.navigate({ to: '/dashboard' })
     } catch {
       setError('Unable to sign in right now. Please try again.')

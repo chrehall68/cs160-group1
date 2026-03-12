@@ -102,6 +102,16 @@ export default function Header() {
           )}
 
           {isLoggedIn && (
+            <Link
+              to="/profile"
+              className="nav-link"
+              activeProps={{ className: 'nav-link is-active' }}
+            >
+              Profile
+            </Link>
+          )}
+
+          {isLoggedIn && (
             <button
               type="button"
               onClick={handleLogout}
