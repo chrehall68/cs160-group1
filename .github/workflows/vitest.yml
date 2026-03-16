@@ -17,9 +17,9 @@ jobs:
                   node-version: 22
             - name: Install dependencies
               run: |
-                  cd frontend
+                  cd web-client
                   npm install
             - name: Run tests
               run: |
-                  cd frontend
+                  cd web-client
                   npm test
