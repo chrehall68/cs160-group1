@@ -1,5 +1,6 @@
 from uuid import uuid4
 from datetime import date
+from fastapi.testclient import TestClient
 
 
 def _register_payload(username: str | None = None) -> dict:
@@ -157,3 +158,80 @@ def test_logout_requires_existing_cookie(client):
 
     assert response.status_code == 401
     assert response.json() == {"detail": "Not authenticated"}
+
+def test_logout_clears_cookie_and_blocks_protected(client):
+    # register sets the auth cookie
+    r = client.post("/user", json=_register_payload())
+    assert r.status_code == 200
+
+    # logout should remove the cookie and return an empty body
+    logout = client.post("/logout")
+    assert logout.status_code == 200
+    assert logout.json() == {}
+
+    # protected endpoint should now require auth
+    protected = client.get("/customer")
+    assert protected.status_code == 401
+
+
+def test_get_customer_returns_registered_info(client):
+    payload = _register_payload()
+    r = client.post("/user", json=payload)
+    assert r.status_code == 200
+
+    info = client.get("/customer")
+    assert info.status_code == 200
+    body = info.json()
+    assert body["first_name"] == payload["first_name"]
+    assert body["last_name"] == payload["last_name"]
+    assert body["email"] == payload["email"]
+    assert body["phone"] == payload["phone"]
+
+
+def test_cannot_delete_another_user(client):
+    a = _register_payload()
+    b = _register_payload()
+
+    # create user A using an isolated TestClient instance
+    with TestClient(client.app, base_url="https://testserver") as tc_a:
+        resp_a = tc_a.post("/user", json=a)
+        assert resp_a.status_code == 200
+        user_id_a = resp_a.json()["user_id"]
+
+        # create user B in a separate TestClient so cookies don't collide
+        with TestClient(client.app, base_url="https://testserver") as tc_b:
+            resp_b = tc_b.post("/user", json=b)
+            assert resp_b.status_code == 200
+            user_id_b = resp_b.json()["user_id"]
+
+        # attempt to delete user B while authenticated as A
+        delete_resp = tc_a.delete(f"/user/{user_id_b}")
+        assert delete_resp.status_code == 403
+        assert delete_resp.json() == {"detail": "Cannot delete another user's account"}
+
+def test_create_account_and_prevent_user_delete(client):
+    # register a user and get the assigned user id
+    payload = _register_payload()
+    reg = client.post("/user", json=payload)
+    assert reg.status_code == 200
+    user_id = reg.json()["user_id"]
+
+    # create an account for the logged-in user
+    acct_resp = client.post("/accounts/create", json={"account_type": "checking"})
+    assert acct_resp.status_code == 200
+    assert "account_id" in acct_resp.json()
+
+    # attempt to delete the user who now has an active account
+    delete_resp = client.delete(f"/user/{user_id}")
+    assert delete_resp.status_code == 400
+    assert delete_resp.json() == {"detail": "Cannot delete user with open accounts"}
+
+
+def test_account_creation_requires_auth(client):
+    # create a separate TestClient without cookies to simulate unauthenticated request
+    #from fastapi.testclient import TestClient
+
+    with TestClient(client.app, base_url="https://testserver") as unauth:
+        resp = unauth.post("/accounts/create", json={"account_type": "checking"})
+        # should be unauthorized because no cookie is present
+        assert resp.status_code == 401
