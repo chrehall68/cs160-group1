@@ -8,20 +8,22 @@ from routes.atm import router as atm_router
 from scheduler import scheduler
 from fastapi.middleware.cors import CORSMiddleware
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     create_db_and_tables()
 
     print("Starting APScheduler...")
     scheduler.start()
-    
+
     yield
+    scheduler.shutdown()
 
 
 app = FastAPI(lifespan=lifespan)
 
 
-#by pass CORS error, allow requests from localhost:8081
+# by pass CORS error, allow requests from localhost:8081
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000", "http://localhost:8081"],
@@ -35,6 +37,7 @@ app.include_router(users_router)
 
 app.include_router(transactions.router)
 app.include_router(atm_router)
+
 
 @app.get("/")
 def read_root():
