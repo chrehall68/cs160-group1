@@ -54,6 +54,17 @@ Then:
 
 To run the web client, backend, and database together in development mode:
 
+First, make sure you create a `.env` file with your Google API key.
+
+Example:
+
+```
+# (.env file)
+GOOGLE_API_KEY=<YOUR_GOOGLE_API_KEY>
+```
+
+Then, you can run:
+
 ```bash
 docker compose -f docker-compose.dev.yml up --build
 ```

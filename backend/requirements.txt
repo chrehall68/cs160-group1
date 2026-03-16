@@ -58,3 +58,4 @@ watchfiles==1.1.1
 websockets==16.0
 wrapt==2.1.2
 apscheduler
+httpx
