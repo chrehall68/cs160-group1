@@ -19,17 +19,6 @@ type ATMResult = {
   lng: number
 }
 
-function haversine(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const R = 6371000
-  const dLat = ((lat2 - lat1) * Math.PI) / 180
-  const dLon = ((lon2 - lon1) * Math.PI) / 180
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) ** 2
-  return (R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))) / 1609.344
-}
 
 export default function ATM() {
   const [address, setAddress] = useState('')
@@ -55,22 +44,7 @@ export default function ATM() {
       const placesRes = await fetch(`/api/atm/nearby?lat=${lat}&lng=${lng}`)
       const placesData = await placesRes.json()
 
-      const atms: ATMResult[] = (placesData.results || [])
-        .filter((p: any) =>
-          p.name.toLowerCase().includes('chase') ||
-          p.international_phone_number === '+1 800-935-9935'
-        )
-        .map((p: any) => ({
-          address: p.vicinity,
-          distance: haversine(lat, lng, p.geometry.location.lat, p.geometry.location.lng).toFixed(1),
-          open: p.opening_hours?.open_now ?? null,
-          lat: p.geometry.location.lat,
-          lng: p.geometry.location.lng,
-        }))
-        .sort((a: ATMResult, b: ATMResult) => parseFloat(a.distance) - parseFloat(b.distance))
-        .filter((atm: ATMResult, index: number, self: ATMResult[]) =>
-          index === self.findIndex((a) => a.address === atm.address)
-        )
+      const atms: ATMResult[] = placesData.results || [];
 
       setResults(atms)
       setSearched(true)

@@ -12,18 +12,6 @@ import PageLayout from "../components/PageLayout";
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || "http://localhost:8000";
 
-function haversine(lat1, lon1, lat2, lon2) {
-  const R = 6371000;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) ** 2;
-  return (R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))) / 1609.344;
-}
-
 export default function ATMScreen() {
   const [address, setAddress] = useState("");
   const [results, setResults] = useState([]);
@@ -54,23 +42,7 @@ export default function ATMScreen() {
       );
       const placesData = await placesRes.json();
 
-      const atms = (placesData.results || [])
-        .filter(
-          (p) =>
-            p.name.toLowerCase().includes("chase") ||
-            p.international_phone_number === "+1 800-935-9935"
-        )
-        .map((p) => ({
-          address: p.vicinity,
-          distance: haversine(lat, lng, p.geometry.location.lat, p.geometry.location.lng).toFixed(1),
-          open: p.opening_hours?.open_now ?? null,
-          lat: p.geometry.location.lat,
-          lng: p.geometry.location.lng,
-        }))
-        .sort((a, b) => parseFloat(a.distance) - parseFloat(b.distance))
-        .filter((atm, index, self) =>
-          index === self.findIndex((a) => a.address === atm.address)
-        );
+      const atms = placesData.results || [];
 
       setResults(atms);
       setSearched(true);
