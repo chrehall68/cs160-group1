@@ -23,6 +23,7 @@ services:
       DB_LOCATION: database
       DB_NAME: postgres
       JWT_SECRET_KEY: 528482b94c0521c37c2a3c2e749f435c00790e891c076cbe9aafbcc00a546302
+      GOOGLE_API_KEY: AIzaSyAEa0riq-_7GkKu9IQ2yqL1cn4eI3Kz9Rc
     depends_on:
       database:
         condition: service_healthy
