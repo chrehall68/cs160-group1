@@ -33,22 +33,20 @@ export default function Popup({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-lg bg-white/90 p-6 shadow-md"
+        className="w-full max-w-md rounded-lg bg-white p-6 shadow-md"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4">
           <div>
             <h3 className="text-lg font-semibold">{title}</h3>
-            <p className="mt-2 text-sm text-[var(--sea-ink-soft)]">
-              {description}
-            </p>
+            <p className="mt-2 text-sm text-(--sea-ink-soft)">{description}</p>
           </div>
 
           <button
             type="button"
             aria-label="Close popup"
             onClick={onClose}
-            className="rounded px-2 py-1 text-lg leading-none text-[var(--sea-ink-soft)] hover:bg-black/5 hover:text-[var(--sea-ink)]"
+            className="rounded px-2 py-1 text-lg leading-none text-(--sea-ink-soft) hover:bg-black/5 hover:text-[var(--sea-ink)]"
           >
             ×
           </button>
