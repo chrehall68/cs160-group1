@@ -127,6 +127,12 @@ def close_account(
                 status_code=status.HTTP_403_FORBIDDEN, detail="Not your account"
             )
 
+        if account.status == AccountStatus.CLOSED:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Account is already closed",
+            )
+
         # must have $0 balance to close
         if account.balance > 0:
             raise HTTPException(
