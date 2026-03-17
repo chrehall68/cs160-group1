@@ -113,7 +113,10 @@ def test_login_rejects_invalid_username_or_password(client):
 
     invalid_username_response = client.post(
         "/login",
-        json={"username": f'{payload["username"]}_wrong', "password": payload["password"]},
+        json={
+            "username": f'{payload["username"]}_wrong',
+            "password": payload["password"],
+        },
     )
     invalid_password_response = client.post(
         "/login",
@@ -158,6 +161,7 @@ def test_logout_requires_existing_cookie(client):
 
     assert response.status_code == 401
     assert response.json() == {"detail": "Not authenticated"}
+
 
 def test_logout_clears_cookie_and_blocks_protected(client):
     # register sets the auth cookie
@@ -209,6 +213,7 @@ def test_cannot_delete_another_user(client):
         assert delete_resp.status_code == 403
         assert delete_resp.json() == {"detail": "Cannot delete another user's account"}
 
+
 def test_create_account_and_prevent_user_delete(client):
     # register a user and get the assigned user id
     payload = _register_payload()
@@ -229,9 +234,7 @@ def test_create_account_and_prevent_user_delete(client):
 
 def test_account_creation_requires_auth(client):
     # create a separate TestClient without cookies to simulate unauthenticated request
-    #from fastapi.testclient import TestClient
-
-    with TestClient(client.app, base_url="https://testserver") as unauth:
-        resp = unauth.post("/accounts/create", json={"account_type": "checking"})
-        # should be unauthorized because no cookie is present
-        assert resp.status_code == 401
+    # from fastapi.testclient import TestClient
+    resp = client.post("/accounts/create", json={"account_type": "checking"})
+    # should be unauthorized because no cookie is present
+    assert resp.status_code == 401
