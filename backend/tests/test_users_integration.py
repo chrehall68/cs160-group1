@@ -1,32 +1,10 @@
-from uuid import uuid4
 from datetime import date
 from fastapi.testclient import TestClient
-
-
-def _register_payload(username: str | None = None) -> dict:
-    suffix = uuid4().hex[:8]
-    return {
-        "username": username or f"user_{suffix}",
-        "password": "StrongPassword123!",
-        "first_name": "Test",
-        "last_name": "User",
-        "date_of_birth": "2000-01-01",
-        "email": f"user_{suffix}@example.com",
-        "phone": "5551234567",
-        "address": {
-            "street": "1 Integration Way",
-            "unit": "10A",
-            "city": "San Diego",
-            "state": "CA",
-            "zipcode": "92101",
-            "country": "USA",
-        },
-        "ssn": f"{uuid4().int % 1_000_000_000:09d}",
-    }
+from tests.shared import make_register_payload
 
 
 def test_register_creates_user_and_sets_cookie(client):
-    response = client.post("/user", json=_register_payload())
+    response = client.post("/user", json=make_register_payload())
 
     assert response.status_code == 200
 
@@ -38,7 +16,7 @@ def test_register_creates_user_and_sets_cookie(client):
 
 
 def test_register_rejects_duplicate_username(client):
-    payload = _register_payload(username="duplicate_user")
+    payload = make_register_payload(username="duplicate_user")
 
     first_response = client.post("/user", json=payload)
     second_response = client.post("/user", json={**payload, "email": "new@example.com"})
@@ -49,7 +27,7 @@ def test_register_rejects_duplicate_username(client):
 
 
 def test_register_rejects_user_younger_than_18(client):
-    payload = _register_payload()
+    payload = make_register_payload()
     today = date.today()
     underage_dob = today.replace(year=today.year - 17).isoformat()
 
@@ -63,7 +41,7 @@ def test_register_rejects_user_younger_than_18(client):
 
 
 def test_register_rejects_phone_number_with_wrong_length(client):
-    payload = _register_payload()
+    payload = make_register_payload()
 
     response = client.post("/user", json={**payload, "phone": "555123456"})
 
@@ -75,7 +53,7 @@ def test_register_rejects_phone_number_with_wrong_length(client):
 
 
 def test_register_rejects_ssn_with_wrong_length(client):
-    payload = _register_payload()
+    payload = make_register_payload()
 
     response = client.post("/user", json={**payload, "ssn": "12345678"})
 
@@ -87,7 +65,7 @@ def test_register_rejects_ssn_with_wrong_length(client):
 
 
 def test_login_returns_token_for_existing_user(client):
-    payload = _register_payload()
+    payload = make_register_payload()
     register_response = client.post("/user", json=payload)
 
     assert register_response.status_code == 200
@@ -106,7 +84,7 @@ def test_login_returns_token_for_existing_user(client):
 
 
 def test_login_rejects_invalid_username_or_password(client):
-    payload = _register_payload()
+    payload = make_register_payload()
     register_response = client.post("/user", json=payload)
 
     assert register_response.status_code == 200
@@ -137,7 +115,7 @@ def test_login_rejects_invalid_username_or_password(client):
 
 
 def test_delete_user_allows_authenticated_owner_without_open_accounts(client):
-    payload = _register_payload()
+    payload = make_register_payload()
     register_response = client.post("/user", json=payload)
 
     assert register_response.status_code == 200
@@ -165,7 +143,7 @@ def test_logout_requires_existing_cookie(client):
 
 def test_logout_clears_cookie_and_blocks_protected(client):
     # register sets the auth cookie
-    r = client.post("/user", json=_register_payload())
+    r = client.post("/user", json=make_register_payload())
     assert r.status_code == 200
 
     # logout should remove the cookie and return an empty body
@@ -179,7 +157,7 @@ def test_logout_clears_cookie_and_blocks_protected(client):
 
 
 def test_get_customer_returns_registered_info(client):
-    payload = _register_payload()
+    payload = make_register_payload()
     r = client.post("/user", json=payload)
     assert r.status_code == 200
 
@@ -193,8 +171,8 @@ def test_get_customer_returns_registered_info(client):
 
 
 def test_cannot_delete_another_user(client):
-    a = _register_payload()
-    b = _register_payload()
+    a = make_register_payload()
+    b = make_register_payload()
 
     # create user A using an isolated TestClient instance
     with TestClient(client.app, base_url="https://testserver") as tc_a:
@@ -216,7 +194,7 @@ def test_cannot_delete_another_user(client):
 
 def test_create_account_and_prevent_user_delete(client):
     # register a user and get the assigned user id
-    payload = _register_payload()
+    payload = make_register_payload()
     reg = client.post("/user", json=payload)
     assert reg.status_code == 200
     user_id = reg.json()["user_id"]

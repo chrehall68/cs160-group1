@@ -1,4 +1,5 @@
 import { clearAuthSession, isAuthenticated, useAuthSession } from '#/lib/auth'
+import Popup from '#/components/Popup'
 import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 
@@ -22,6 +23,7 @@ function RouteComponent() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [showDeletePopup, setShowDeletePopup] = useState(false)
 
   const fullName = `${firstName} ${lastName}`.trim() || 'User'
   const initials =
@@ -100,14 +102,6 @@ function RouteComponent() {
       return
     }
 
-    const confirmed = window.confirm(
-      'Delete this user account? This cannot be undone, and active accounts must be closed first.',
-    )
-
-    if (!confirmed) {
-      return
-    }
-
     setIsDeleting(true)
     setDeleteError(null)
 
@@ -122,6 +116,7 @@ function RouteComponent() {
       }
 
       clearAuthSession()
+      setShowDeletePopup(false)
       router.navigate({ to: '/signup' })
     } catch (error) {
       console.error('Error deleting user:', error)
@@ -135,6 +130,40 @@ function RouteComponent() {
 
   return (
     <main className="page-wrap px-4 pb-8 pt-14">
+      {showDeletePopup && (
+        <Popup
+          title="Delete this user?"
+          description="Confirm that you want to delete this user account. This cannot be undone, and active accounts must be closed first."
+          onClose={() => setShowDeletePopup(false)}
+        >
+          <div className="space-y-4">
+            {deleteError && (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                {deleteError}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowDeletePopup(false)}
+                className="rounded border border-[var(--line)] bg-white px-4 py-2 font-semibold text-[var(--sea-ink)] hover:bg-black/5"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteUser}
+                disabled={isDeleting}
+                className="rounded bg-red-600 px-4 py-2 font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isDeleting ? 'Deleting user...' : 'Yes, Delete User'}
+              </button>
+            </div>
+          </div>
+        </Popup>
+      )}
+
       <section className="space-y-6">
         <div className="island-shell rise-in rounded-2xl p-6 sm:p-8">
           <p className="island-kicker mb-2">Profile</p>
@@ -223,11 +252,14 @@ function RouteComponent() {
 
               <button
                 type="button"
-                onClick={handleDeleteUser}
+                onClick={() => {
+                  setDeleteError(null)
+                  setShowDeletePopup(true)
+                }}
                 disabled={isDeleting}
-                className="mt-5 w-full rounded bg-[var(--lagoon)] px-4 py-2 font-semibold text-white hover:bg-[var(--lagoon-deep)] disabled:cursor-not-allowed disabled:opacity-70"
+                className="mt-5 w-full rounded bg-red-600 px-4 py-2 font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-70"
               >
-                {isDeleting ? 'Deleting user...' : 'Delete User'}
+                Delete User
               </button>
             </article>
           </section>

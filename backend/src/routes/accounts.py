@@ -6,11 +6,21 @@ from sqlmodel import select
 from dependencies.db import SessionDep
 from dependencies.auth import AuthDep
 from models import (
-    Account, AccountType, AccountStatus,
-    ATM, Address, ATMStatus,
-    Transaction, TransactionType, TransactionStatus,
-    LedgerEntry, LedgerType,
-    ATMDeposit, Withdraw, DepositType
+    Account,
+    AccountType,
+    AccountStatus,
+    ATM,
+    Address,
+    ATMStatus,
+    Transaction,
+    TransactionType,
+    TransactionStatus,
+    LedgerEntry,
+    LedgerType,
+    ATMDeposit,
+    Withdraw,
+    DepositType,
+    User,
 )
 from dtos.accounts import CreateAccountRequest, CashDepositRequest, WithdrawRequest
 from decimal import Decimal
@@ -49,7 +59,6 @@ def create_account(
     """
     try:
         # get customer_id from the logged in user
-        from models import User
         user = session.get(User, user_info.user_id)
         if not user or not user.customer_id:
             raise HTTPException(
@@ -99,18 +108,30 @@ def close_account(
     Closes an account if it belongs to the user and has $0 balance. Requires authentication.
     """
     try:
-        from models import User
+
         user = session.get(User, user_info.user_id)
         if not user or not user.customer_id:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Customer not found")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Customer not found"
+            )
 
         account = session.get(Account, account_id)
         if not account:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Account not found"
+            )
 
         # make sure account belongs to this user
         if account.customer_id != user.customer_id:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your account")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Not your account"
+            )
+
+        if account.status == AccountStatus.CLOSED:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Account is already closed",
+            )
 
         # must have $0 balance to close
         if account.balance > 0:
@@ -148,17 +169,22 @@ def get_account(
     Gets account info. Requires authentication.
     """
     try:
-        from models import User
         user = session.get(User, user_info.user_id)
         if not user or not user.customer_id:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Customer not found")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Customer not found"
+            )
 
         account = session.get(Account, account_id)
         if not account:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Account not found"
+            )
 
         if account.customer_id != user.customer_id:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your account")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Not your account"
+            )
 
         return account
 
@@ -182,12 +208,17 @@ def get_all_accounts(
     Lists all accounts for the logged in user. Requires authentication.
     """
     try:
-        from models import User
         user = session.get(User, user_info.user_id)
         if not user or not user.customer_id:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Customer not found")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Customer not found"
+            )
 
-        statement = select(Account).where(Account.customer_id == user.customer_id)
+        statement = (
+            select(Account)
+            .where(Account.customer_id == user.customer_id)
+            .where(Account.status == AccountStatus.ACTIVE)
+        )
         accounts = session.exec(statement).all()
 
         return {"accounts": accounts}
@@ -213,20 +244,27 @@ def deposit_cash(
     Deposits cash at an ATM into an account. Requires authentication.
     """
     try:
-        from models import User
         user = session.get(User, user_info.user_id)
         if not user or not user.customer_id:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Customer not found")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Customer not found"
+            )
 
         account = session.get(Account, request.account_id)
         if not account:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Account not found"
+            )
 
         if account.customer_id != user.customer_id:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your account")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Not your account"
+            )
 
         if account.status != AccountStatus.ACTIVE:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Account is not active")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Account is not active"
+            )
 
         # get or create ATM
         atm = get_or_create_atm(session, request.atm_address)
@@ -292,23 +330,32 @@ def withdraw(
     Withdraws cash from an account at an ATM. Requires authentication.
     """
     try:
-        from models import User
         user = session.get(User, user_info.user_id)
         if not user or not user.customer_id:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Customer not found")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Customer not found"
+            )
 
         account = session.get(Account, request.account_id)
         if not account:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Account not found"
+            )
 
         if account.customer_id != user.customer_id:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your account")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Not your account"
+            )
 
         if account.status != AccountStatus.ACTIVE:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Account is not active")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Account is not active"
+            )
 
         if account.balance < request.cash_amount:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Insufficient funds")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Insufficient funds"
+            )
 
         # get or create ATM
         atm = get_or_create_atm(session, request.atm_address)
