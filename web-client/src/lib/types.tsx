@@ -1,4 +1,4 @@
-type Account = {
+type AccountType = {
   account_id: number
   account_number: string
   routing_number: string

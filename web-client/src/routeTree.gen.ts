@@ -16,9 +16,10 @@ import { Route as ManagerRouteImport } from './routes/manager'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as AtmRouteImport } from './routes/atm'
-import { Route as AccountsRouteImport } from './routes/accounts'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AccountsIndexRouteImport } from './routes/accounts/index'
+import { Route as AccountsAccountIdRouteImport } from './routes/accounts/$accountId'
 
 const TransferRoute = TransferRouteImport.update({
   id: '/transfer',
@@ -55,11 +56,6 @@ const AtmRoute = AtmRouteImport.update({
   path: '/atm',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AccountsRoute = AccountsRouteImport.update({
-  id: '/accounts',
-  path: '/accounts',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AboutRoute = AboutRouteImport.update({
   id: '/about',
   path: '/about',
@@ -70,11 +66,20 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AccountsIndexRoute = AccountsIndexRouteImport.update({
+  id: '/accounts/',
+  path: '/accounts/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AccountsAccountIdRoute = AccountsAccountIdRouteImport.update({
+  id: '/accounts/$accountId',
+  path: '/accounts/$accountId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
-  '/accounts': typeof AccountsRoute
   '/atm': typeof AtmRoute
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
@@ -82,11 +87,12 @@ export interface FileRoutesByFullPath {
   '/profile': typeof ProfileRoute
   '/signup': typeof SignupRoute
   '/transfer': typeof TransferRoute
+  '/accounts/$accountId': typeof AccountsAccountIdRoute
+  '/accounts/': typeof AccountsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
-  '/accounts': typeof AccountsRoute
   '/atm': typeof AtmRoute
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
@@ -94,12 +100,13 @@ export interface FileRoutesByTo {
   '/profile': typeof ProfileRoute
   '/signup': typeof SignupRoute
   '/transfer': typeof TransferRoute
+  '/accounts/$accountId': typeof AccountsAccountIdRoute
+  '/accounts': typeof AccountsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
-  '/accounts': typeof AccountsRoute
   '/atm': typeof AtmRoute
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
@@ -107,13 +114,14 @@ export interface FileRoutesById {
   '/profile': typeof ProfileRoute
   '/signup': typeof SignupRoute
   '/transfer': typeof TransferRoute
+  '/accounts/$accountId': typeof AccountsAccountIdRoute
+  '/accounts/': typeof AccountsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/about'
-    | '/accounts'
     | '/atm'
     | '/dashboard'
     | '/login'
@@ -121,11 +129,12 @@ export interface FileRouteTypes {
     | '/profile'
     | '/signup'
     | '/transfer'
+    | '/accounts/$accountId'
+    | '/accounts/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/about'
-    | '/accounts'
     | '/atm'
     | '/dashboard'
     | '/login'
@@ -133,11 +142,12 @@ export interface FileRouteTypes {
     | '/profile'
     | '/signup'
     | '/transfer'
+    | '/accounts/$accountId'
+    | '/accounts'
   id:
     | '__root__'
     | '/'
     | '/about'
-    | '/accounts'
     | '/atm'
     | '/dashboard'
     | '/login'
@@ -145,12 +155,13 @@ export interface FileRouteTypes {
     | '/profile'
     | '/signup'
     | '/transfer'
+    | '/accounts/$accountId'
+    | '/accounts/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
-  AccountsRoute: typeof AccountsRoute
   AtmRoute: typeof AtmRoute
   DashboardRoute: typeof DashboardRoute
   LoginRoute: typeof LoginRoute
@@ -158,6 +169,8 @@ export interface RootRouteChildren {
   ProfileRoute: typeof ProfileRoute
   SignupRoute: typeof SignupRoute
   TransferRoute: typeof TransferRoute
+  AccountsAccountIdRoute: typeof AccountsAccountIdRoute
+  AccountsIndexRoute: typeof AccountsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -211,13 +224,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AtmRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/accounts': {
-      id: '/accounts'
-      path: '/accounts'
-      fullPath: '/accounts'
-      preLoaderRoute: typeof AccountsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/about': {
       id: '/about'
       path: '/about'
@@ -232,13 +238,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/accounts/': {
+      id: '/accounts/'
+      path: '/accounts'
+      fullPath: '/accounts/'
+      preLoaderRoute: typeof AccountsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/accounts/$accountId': {
+      id: '/accounts/$accountId'
+      path: '/accounts/$accountId'
+      fullPath: '/accounts/$accountId'
+      preLoaderRoute: typeof AccountsAccountIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
-  AccountsRoute: AccountsRoute,
   AtmRoute: AtmRoute,
   DashboardRoute: DashboardRoute,
   LoginRoute: LoginRoute,
@@ -246,6 +265,8 @@ const rootRouteChildren: RootRouteChildren = {
   ProfileRoute: ProfileRoute,
   SignupRoute: SignupRoute,
   TransferRoute: TransferRoute,
+  AccountsAccountIdRoute: AccountsAccountIdRoute,
+  AccountsIndexRoute: AccountsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

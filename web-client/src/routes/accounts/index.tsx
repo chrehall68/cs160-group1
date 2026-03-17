@@ -1,8 +1,10 @@
-import { createFileRoute, redirect } from '@tanstack/react-router'
+import Account from '#/components/Account'
+import '@/lib/types'
+import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
-import { isAuthenticated } from '../lib/auth'
+import { isAuthenticated } from '../../lib/auth'
 
-export const Route = createFileRoute('/accounts')({
+export const Route = createFileRoute('/accounts/')({
   beforeLoad: () => {
     if (!isAuthenticated()) {
       throw redirect({ to: '/login' })
@@ -11,37 +13,26 @@ export const Route = createFileRoute('/accounts')({
   component: Accounts,
 })
 
-interface Account {
-  account_id: number
-  account_number: string
-  balance: number | string
-  account_type: string
-  status?: string
-}
-
 function Accounts() {
-  const [accounts, setAccounts] = useState<Account[]>([])
+  const [accounts, setAccounts] = useState<AccountType[]>([])
   const [accountType, setAccountType] = useState('checking')
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isCreating, setIsCreating] = useState(false)
-
-  const activeAccounts = accounts.filter(
-    (account) => (account.status ?? '').toLowerCase() === 'active',
-  )
+  const navigate = useNavigate()
 
   async function getAccounts() {
     setIsLoading(true)
 
     try {
       const res = await fetch('/api/accounts')
-      const data = await res.json().catch(() => null)
+      const data = await res.json()
 
       if (!res.ok) {
-        throw new Error(data?.detail ?? 'Unable to load accounts.')
+        throw new Error(data.detail)
       }
 
-      setAccounts(Array.isArray(data?.accounts) ? data.accounts : [])
+      setAccounts(data.accounts)
       setError(null)
     } catch (err) {
       console.error('Error fetching accounts:', err)
@@ -55,7 +46,7 @@ function Accounts() {
     getAccounts()
   }, [])
 
-  async function createAccount(event: React.FormEvent<HTMLFormElement>) {
+  async function createAccount(event: React.SubmitEvent<HTMLFormElement>) {
     event.preventDefault()
     setIsCreating(true)
 
@@ -101,46 +92,19 @@ function Accounts() {
               <div className="rounded-lg bg-white/80 p-6 shadow-md">
                 <p className="text-(--sea-ink-soft)">Loading accounts...</p>
               </div>
-            ) : activeAccounts.length > 0 ? (
-              activeAccounts.map((account) => (
-                <div
+            ) : accounts.length > 0 ? (
+              accounts.map((account) => (
+                <Account
                   key={account.account_id}
-                  className="rounded-lg bg-white/80 p-6 shadow-md"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <h3 className="font-semibold">
-                        {toTitleCase(account.account_type)} Account
-                      </h3>
-                      <p className="mt-1 text-sm text-(--sea-ink-soft)">
-                        Account Number:{' '}
-                        {maskAccountNumber(account.account_number)}
-                      </p>
-                    </div>
-                    <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
-                      Active
-                    </span>
-                  </div>
-
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-md bg-[rgba(255,255,255,0.55)] p-4">
-                      <p className="text-sm text-(--sea-ink-soft)">
-                        Available Balance
-                      </p>
-                      <p className="mt-1 text-xl font-semibold">
-                        {formatCurrency(account.balance)}
-                      </p>
-                    </div>
-                    <div className="rounded-md bg-[rgba(255,255,255,0.55)] p-4">
-                      <p className="text-sm text-(--sea-ink-soft)">
-                        Account Type
-                      </p>
-                      <p className="mt-1 text-xl font-semibold">
-                        {toTitleCase(account.account_type)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
+                  account={account}
+                  className="hover:cursor-pointer"
+                  onClick={() =>
+                    navigate({
+                      to: `/accounts/$accountId`,
+                      params: { accountId: `${account.account_id}` },
+                    })
+                  }
+                />
               ))
             ) : (
               <div className="rounded-lg bg-white/80 p-6 shadow-md">
@@ -177,7 +141,7 @@ function Accounts() {
               <button
                 type="submit"
                 disabled={isCreating}
-                className="w-full rounded bg-(--lagoon) px-4 py-2 font-semibold text-white hover:bg-[var(--lagoon-deep)] disabled:cursor-not-allowed disabled:opacity-70"
+                className="w-full rounded bg-(--lagoon) px-4 py-2 font-semibold text-white hover:bg-(--lagoon-deep) disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {isCreating ? 'Creating...' : 'Create Account'}
               </button>
@@ -187,25 +151,4 @@ function Accounts() {
       </section>
     </main>
   )
-}
-
-function formatCurrency(value: number | string) {
-  const amount = Number(value)
-
-  if (Number.isNaN(amount)) {
-    return '$0.00'
-  }
-
-  return amount.toLocaleString('en-US', {
-    style: 'currency',
-    currency: 'USD',
-  })
-}
-
-function maskAccountNumber(accountNumber: string) {
-  return `••••${accountNumber.slice(-4)}`
-}
-
-function toTitleCase(value: string) {
-  return value.charAt(0).toUpperCase() + value.slice(1)
 }
