@@ -23,7 +23,7 @@ jobs:
               run: |
                   cd backend
                   python -m pip install --upgrade pip
-                  pip install pytest black pytest-cov
+                  pip install pytest black==26.3.1 pytest-cov
                   pip install -r requirements.txt
             # TODO - raise coverage bar to 80% eventually
             - name: Test with pytest

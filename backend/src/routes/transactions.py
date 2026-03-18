@@ -16,7 +16,6 @@ from models import (
 )
 from dtos.transactions import TransferRequest, RecurringPaymentRequest
 
-
 router = APIRouter()
 
 

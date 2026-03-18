@@ -4,7 +4,6 @@ from sqlmodel import select, Session
 from dependencies.db import create_db_and_tables
 from models import RecurringPayment, Account, Transaction, Transfer
 
-
 print("Recurring payment scheduler initialized")
 
 
