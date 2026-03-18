@@ -187,10 +187,13 @@ def get_account_transactions(
 
     try:
         offset = (page - 1) * limit
+        # transaction id is autoincrement, so larger id -> happened later
+        # so to get recent transactions first, we just reverse the order
         value_stmt = (
             select(LedgerEntry, Transaction)
             .where(LedgerEntry.account_id == account_id)
             .join(Transaction, LedgerEntry.transaction_id == Transaction.transaction_id)  # type: ignore
+            .order_by(-LedgerEntry.transaction_id)  # type: ignore
             .offset(offset)
             .limit(limit)
         )

@@ -1,5 +1,6 @@
 import Account from '#/components/Account'
 import Popup from '#/components/Popup'
+import { formatCurrency } from '#/lib/utils'
 import { clearAuthSession, isAuthenticated } from '@/lib/auth'
 import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
@@ -13,6 +14,57 @@ export const Route = createFileRoute('/accounts/$accountId')({
   component: AccountPage,
 })
 
+function Transaction({ transaction }: { transaction: TransactionType }) {
+  const formatted = formatCurrency(transaction.amount, transaction.currency)
+  return (
+    <div className="flex flex-row justify-between items-center rounded-lg bg-white/80 p-6 shadow-md">
+      {transaction.type == 'credit' ? (
+        <p className="text-green-700">+{formatted}</p>
+      ) : (
+        <p className="text-red-700">-{formatted}</p>
+      )}
+      <p className="text-sm text-(--sea-ink-soft)">
+        Created at {transaction.created_at}
+      </p>
+    </div>
+  )
+}
+function Transactions({ accountId }: { accountId: string }) {
+  const [page, setPage] = useState<number>(1)
+  const [limit, setLimit] = useState<number>(10)
+  const [numPages, setNumPages] = useState<number>(1)
+  const [transactions, setTransactions] = useState<TransactionType[]>([])
+  const fetchTransactions = async () => {
+    const searchParams = new URLSearchParams()
+    searchParams.append('page', `${page}`)
+    searchParams.append('limit', `${limit}`)
+    const response = await fetch(
+      `/api/transactions/${accountId}?${searchParams}`,
+    )
+    // if response isn't ok, it's because of an error
+    // we'll let the Account component handle the redirect
+    if (response.ok) {
+      const data = await response.json()
+      setTransactions(data.transactions)
+      setNumPages(data.total_pages)
+    }
+  }
+  useEffect(() => {
+    fetchTransactions()
+  }, [])
+
+  // TODO - handle different pages
+  return (
+    <div className="flex flex-col space-y-4">
+      {transactions.length === 0 ? (
+        <p>No transactions.</p>
+      ) : (
+        transactions.map((t) => <Transaction transaction={t} />)
+      )}
+    </div>
+  )
+}
+
 function AccountPage() {
   const router = useRouter()
   const { accountId } = Route.useParams()
@@ -20,6 +72,8 @@ function AccountPage() {
   const [showPopup, setShowPopup] = useState(false)
   const [closeError, setCloseError] = useState<string | null>(null)
   const [isClosing, setIsClosing] = useState(false)
+
+  // ===== fetchers =====
   useEffect(() => {
     async function fetchAccount() {
       try {
@@ -76,8 +130,9 @@ function AccountPage() {
     }
   }
 
+  // ===== display =====
   return (
-    <main className="page-wrap px-4 pb-8 pt-14">
+    <main className="page-wrap px-4 pb-8 pt-14 space-y-6">
       {/* Popup  for closing account */}
       {showPopup && (
         <Popup
@@ -135,7 +190,8 @@ function AccountPage() {
         )}
       </section>
       <section className="space-y-6">
-        {/* TODO - recent transactions */}
+        <h3 className="text-xl font-bold">Recent Transactions</h3>
+        <Transactions accountId={accountId} />
       </section>
     </main>
   )

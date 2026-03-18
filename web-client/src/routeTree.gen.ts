@@ -9,11 +9,13 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WithdrawRouteImport } from './routes/withdraw'
 import { Route as TransferRouteImport } from './routes/transfer'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as ManagerRouteImport } from './routes/manager'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as DepositRouteImport } from './routes/deposit'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as AtmRouteImport } from './routes/atm'
 import { Route as AboutRouteImport } from './routes/about'
@@ -21,6 +23,11 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AccountsIndexRouteImport } from './routes/accounts/index'
 import { Route as AccountsAccountIdRouteImport } from './routes/accounts/$accountId'
 
+const WithdrawRoute = WithdrawRouteImport.update({
+  id: '/withdraw',
+  path: '/withdraw',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TransferRoute = TransferRouteImport.update({
   id: '/transfer',
   path: '/transfer',
@@ -44,6 +51,11 @@ const ManagerRoute = ManagerRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DepositRoute = DepositRouteImport.update({
+  id: '/deposit',
+  path: '/deposit',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -82,11 +94,13 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/atm': typeof AtmRoute
   '/dashboard': typeof DashboardRoute
+  '/deposit': typeof DepositRoute
   '/login': typeof LoginRoute
   '/manager': typeof ManagerRoute
   '/profile': typeof ProfileRoute
   '/signup': typeof SignupRoute
   '/transfer': typeof TransferRoute
+  '/withdraw': typeof WithdrawRoute
   '/accounts/$accountId': typeof AccountsAccountIdRoute
   '/accounts/': typeof AccountsIndexRoute
 }
@@ -95,11 +109,13 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/atm': typeof AtmRoute
   '/dashboard': typeof DashboardRoute
+  '/deposit': typeof DepositRoute
   '/login': typeof LoginRoute
   '/manager': typeof ManagerRoute
   '/profile': typeof ProfileRoute
   '/signup': typeof SignupRoute
   '/transfer': typeof TransferRoute
+  '/withdraw': typeof WithdrawRoute
   '/accounts/$accountId': typeof AccountsAccountIdRoute
   '/accounts': typeof AccountsIndexRoute
 }
@@ -109,11 +125,13 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/atm': typeof AtmRoute
   '/dashboard': typeof DashboardRoute
+  '/deposit': typeof DepositRoute
   '/login': typeof LoginRoute
   '/manager': typeof ManagerRoute
   '/profile': typeof ProfileRoute
   '/signup': typeof SignupRoute
   '/transfer': typeof TransferRoute
+  '/withdraw': typeof WithdrawRoute
   '/accounts/$accountId': typeof AccountsAccountIdRoute
   '/accounts/': typeof AccountsIndexRoute
 }
@@ -124,11 +142,13 @@ export interface FileRouteTypes {
     | '/about'
     | '/atm'
     | '/dashboard'
+    | '/deposit'
     | '/login'
     | '/manager'
     | '/profile'
     | '/signup'
     | '/transfer'
+    | '/withdraw'
     | '/accounts/$accountId'
     | '/accounts/'
   fileRoutesByTo: FileRoutesByTo
@@ -137,11 +157,13 @@ export interface FileRouteTypes {
     | '/about'
     | '/atm'
     | '/dashboard'
+    | '/deposit'
     | '/login'
     | '/manager'
     | '/profile'
     | '/signup'
     | '/transfer'
+    | '/withdraw'
     | '/accounts/$accountId'
     | '/accounts'
   id:
@@ -150,11 +172,13 @@ export interface FileRouteTypes {
     | '/about'
     | '/atm'
     | '/dashboard'
+    | '/deposit'
     | '/login'
     | '/manager'
     | '/profile'
     | '/signup'
     | '/transfer'
+    | '/withdraw'
     | '/accounts/$accountId'
     | '/accounts/'
   fileRoutesById: FileRoutesById
@@ -164,17 +188,26 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   AtmRoute: typeof AtmRoute
   DashboardRoute: typeof DashboardRoute
+  DepositRoute: typeof DepositRoute
   LoginRoute: typeof LoginRoute
   ManagerRoute: typeof ManagerRoute
   ProfileRoute: typeof ProfileRoute
   SignupRoute: typeof SignupRoute
   TransferRoute: typeof TransferRoute
+  WithdrawRoute: typeof WithdrawRoute
   AccountsAccountIdRoute: typeof AccountsAccountIdRoute
   AccountsIndexRoute: typeof AccountsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/withdraw': {
+      id: '/withdraw'
+      path: '/withdraw'
+      fullPath: '/withdraw'
+      preLoaderRoute: typeof WithdrawRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/transfer': {
       id: '/transfer'
       path: '/transfer'
@@ -208,6 +241,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/deposit': {
+      id: '/deposit'
+      path: '/deposit'
+      fullPath: '/deposit'
+      preLoaderRoute: typeof DepositRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -260,11 +300,13 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   AtmRoute: AtmRoute,
   DashboardRoute: DashboardRoute,
+  DepositRoute: DepositRoute,
   LoginRoute: LoginRoute,
   ManagerRoute: ManagerRoute,
   ProfileRoute: ProfileRoute,
   SignupRoute: SignupRoute,
   TransferRoute: TransferRoute,
+  WithdrawRoute: WithdrawRoute,
   AccountsAccountIdRoute: AccountsAccountIdRoute,
   AccountsIndexRoute: AccountsIndexRoute,
 }
