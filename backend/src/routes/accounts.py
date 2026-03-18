@@ -270,6 +270,7 @@ def deposit_cash(
         atm = get_or_create_atm(session, request.atm_address)
 
         # create transaction
+        assert account.account_id
         transaction = Transaction(
             account_id=account.account_id,
             transaction_type=TransactionType.ATM_DEPOSIT,
@@ -285,6 +286,7 @@ def deposit_cash(
         session.add(account)
 
         # log ATM deposit
+        assert transaction.transaction_id and atm.atm_id
         atm_deposit = ATMDeposit(
             transaction_id=transaction.transaction_id,
             atm_id=atm.atm_id,
@@ -361,6 +363,7 @@ def withdraw(
         atm = get_or_create_atm(session, request.atm_address)
 
         # create transaction
+        assert account.account_id
         transaction = Transaction(
             account_id=account.account_id,
             transaction_type=TransactionType.WITHDRAWAL,
@@ -376,6 +379,7 @@ def withdraw(
         session.add(account)
 
         # log withdraw
+        assert transaction.transaction_id and atm.atm_id
         withdraw_record = Withdraw(
             transaction_id=transaction.transaction_id,
             atm_id=atm.atm_id,

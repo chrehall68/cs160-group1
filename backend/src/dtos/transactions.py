@@ -1,7 +1,7 @@
 from pydantic import BaseModel, field_validator
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
-from models import TransferType, RecurringFrequency
+from models import TransferType, RecurringFrequency, LedgerType
 
 
 class TransferRequest(BaseModel):
@@ -28,3 +28,11 @@ class RecurringPaymentRequest(BaseModel):
     amount: Decimal
     frequency: RecurringFrequency
     next_payment_date: date
+
+
+class TransactionResponse(BaseModel):
+    transaction_id: int
+    type: LedgerType
+    amount: Decimal
+    currency: str
+    created_at: datetime
