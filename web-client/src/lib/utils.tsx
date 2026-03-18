@@ -1,14 +1,16 @@
-export function formatCurrency(value: number | string) {
+export function formatCurrency(
+  value: number | string,
+  currency: string = 'USD',
+) {
   const amount = Number(value)
 
   if (Number.isNaN(amount)) {
     return '$0.00'
   }
 
-  // TODO - probably should allow other currencies
   return amount.toLocaleString('en-US', {
     style: 'currency',
-    currency: 'USD',
+    currency,
   })
 }
 
