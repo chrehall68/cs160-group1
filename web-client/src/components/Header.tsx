@@ -53,6 +53,25 @@ export default function Header() {
 
           {isLoggedIn && (
             <Link
+            to="/deposit"
+            className="nav-link"
+            activeProps={{ className: 'nav-link is-active' }}
+            >
+              Deposit
+            </Link>
+          )}
+
+          {isLoggedIn && (
+            <Link
+            to="/withdraw"
+            className="nav-link"
+            activeProps={{ className: 'nav-link is-active' }}
+            >
+              Withdraw
+            </Link>
+          )}
+          {isLoggedIn && (
+            <Link
               to="/transfer"
               className="nav-link"
               activeProps={{ className: 'nav-link is-active' }}
