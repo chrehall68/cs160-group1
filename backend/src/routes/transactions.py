@@ -16,8 +16,8 @@ from models import (
 )
 from dtos.transactions import TransferRequest, RecurringPaymentRequest
 
-
 router = APIRouter()
+
 
 @router.post("/transfer/internal")
 def transfer_money(
@@ -30,9 +30,7 @@ def transfer_money(
     """
 
     # find source account
-    statement = select(Account).where(
-        Account.account_id == request.from_account_id
-    )
+    statement = select(Account).where(Account.account_id == request.from_account_id)
     from_account = session.exec(statement).first()
 
     if not from_account:
@@ -89,7 +87,8 @@ def transfer_money(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Transfer failed",
         )
-    
+
+
 @router.post("/recurring")
 def create_recurring_payment(
     request: RecurringPaymentRequest,
@@ -100,10 +99,8 @@ def create_recurring_payment(
     Create a recurring payment schedule
     """
 
-    #verify account
-    statement = select(Account).where(
-        Account.account_id == request.from_account_id
-    )
+    # verify account
+    statement = select(Account).where(Account.account_id == request.from_account_id)
     account = session.exec(statement).first()
 
     if not account:
