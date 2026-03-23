@@ -1,9 +1,10 @@
+import { DecimalInput } from '#/components/DecimalInput'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { apiRequest, getErrorMessage } from '../lib/api'
-import { fetchAccounts, queryKeys } from '../lib/queries'
 import { isAuthenticated } from '../lib/auth'
+import { fetchAccounts, queryKeys } from '../lib/queries'
 
 export const Route = createFileRoute('/withdraw')({
   beforeLoad: () => {
@@ -126,15 +127,7 @@ function Withdraw() {
 
         <div>
           <label className="block text-sm font-medium">Amount:</label>
-          <input
-            type="text"
-            inputMode="decimal"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder="0.00"
-            className="mt-1 w-full rounded border px-3 py-2"
-            required
-          />
+          <DecimalInput val={amount} setVal={setAmount} />
         </div>
 
         <div className="border-t pt-4">

@@ -1,6 +1,9 @@
+import { DecimalInput } from '#/components/DecimalInput'
+import { fetchAccounts, queryKeys } from '#/lib/queries'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
+import { useEffect, useState } from 'react'
 import { isAuthenticated } from '../lib/auth'
-import { useState } from 'react'
 
 export const Route = createFileRoute('/transfer')({
   beforeLoad: () => {
@@ -11,13 +14,24 @@ export const Route = createFileRoute('/transfer')({
   component: Transfer,
 })
 function Transfer() {
-  const [fromAccount, setFromAccount] = useState('checking')
+  const [selectedAccountId, setSelectedAccountId] = useState('')
   const [toAccount, setToAccount] = useState('')
   const [routingNumber, setRoutingNumber] = useState('')
   const [amount, setAmount] = useState('')
   const [isRecurring, setIsRecurring] = useState(false)
   const [frequency, setFrequency] = useState('weekly')
   const [startDate, setStartDate] = useState('')
+  const queryClient = useQueryClient()
+  const accountsQuery = useQuery({
+    queryKey: queryKeys.accounts,
+    queryFn: fetchAccounts,
+  })
+
+  useEffect(() => {
+    if (!selectedAccountId && accountsQuery.data?.length) {
+      setSelectedAccountId(String(accountsQuery.data[0].account_id))
+    }
+  }, [accountsQuery.data, selectedAccountId])
 
   const handleSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -40,14 +54,18 @@ function Transfer() {
         <h2 className="text-2xl font-bold">Transfer Money</h2>
 
         <div>
-          <label className="block text-sm font-medium">From Account:</label>
+          <label className="block text-sm font-medium">Account:</label>
           <select
-            value={fromAccount}
-            onChange={(e) => setFromAccount(e.target.value)}
+            value={selectedAccountId}
+            onChange={(e) => setSelectedAccountId(e.target.value)}
             className="mt-1 w-full rounded border px-3 py-2"
+            disabled={accountsQuery.isLoading || !accountsQuery.data?.length}
           >
-            <option value="checking">Checking ••••1234</option>
-            <option value="savings">Savings ••••8832</option>
+            {accountsQuery.data?.map((account) => (
+              <option key={account.account_id} value={account.account_id}>
+                {account.account_type} ••••{account.account_number.slice(-4)}
+              </option>
+            ))}
           </select>
         </div>
 
@@ -79,14 +97,7 @@ function Transfer() {
 
         <div>
           <label className="block text-sm font-medium">Amount:</label>
-          <input
-            type="number"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder="$0.00"
-            className="mt-1 w-full rounded border px-3 py-2"
-            required
-          />
+          <DecimalInput val={amount} setVal={setAmount} />
         </div>
 
         <div className="border-t pt-4">
@@ -97,9 +108,7 @@ function Transfer() {
               onChange={(e) => setIsRecurring(e.target.checked)}
               className="h-4 w-4 rounded"
             />
-            <span className="ml-2 text-sm font-medium">
-              Set up recurring transfer
-            </span>
+            <span className="ml-2 text-sm font-medium">Schedule for later</span>
           </label>
         </div>
 
@@ -112,6 +121,7 @@ function Transfer() {
                 onChange={(e) => setFrequency(e.target.value)}
                 className="mt-1 w-full rounded border px-3 py-2"
               >
+                <option value="once">Once</option>
                 <option value="weekly">Weekly</option>
                 <option value="biweekly">Biweekly</option>
                 <option value="monthly">Monthly</option>
@@ -133,7 +143,7 @@ function Transfer() {
 
         <button
           type="submit"
-          className="w-full rounded bg-[var(--lagoon)] px-4 py-2 font-semibold text-white hover:bg-[var(--lagoon-deep)]"
+          className="w-full rounded bg-(--lagoon) px-4 py-2 font-semibold text-white hover:bg-[var(--lagoon-deep)]"
         >
           Submit Transfer
         </button>

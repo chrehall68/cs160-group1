@@ -1,20 +1,12 @@
 import Account from '#/components/Account'
 import Popup from '#/components/Popup'
 import { formatCurrency } from '#/lib/utils'
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from '@tanstack/react-query'
 import { clearAuthSession, isAuthenticated } from '@/lib/auth'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { apiRequest, getErrorMessage, isApiError } from '../../lib/api'
-import {
-  fetchAccount,
-  fetchTransactions,
-  queryKeys,
-} from '../../lib/queries'
+import { fetchAccount, fetchTransactions, queryKeys } from '../../lib/queries'
 
 export const Route = createFileRoute('/accounts/$accountId')({
   beforeLoad: () => {
@@ -128,7 +120,10 @@ function AccountPage() {
       return
     }
 
-    if (accountQuery.error.status === 403 || accountQuery.error.status === 404) {
+    if (
+      accountQuery.error.status === 403 ||
+      accountQuery.error.status === 404
+    ) {
       router.navigate({ to: '/accounts' })
     }
   }, [accountQuery.error, queryClient, router])
@@ -211,6 +206,7 @@ function AccountPage() {
         </Popup>
       )}
 
+      {/* Main display */}
       <section className="space-y-6">
         <div className="space-y-2">
           <h2 className="text-2xl font-bold">Your Accounts</h2>
