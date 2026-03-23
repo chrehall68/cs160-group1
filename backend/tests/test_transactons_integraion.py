@@ -45,8 +45,12 @@ def test_get_account_transactions_returns_most_recent_first_with_pagination(clie
     _withdraw_cash(client, account_id, "30.00")
     _deposit_cash(client, account_id, "5.00")
 
-    first_page = client.get(f"/transactions/{account_id}", params={"page": 1, "limit": 2})
-    second_page = client.get(f"/transactions/{account_id}", params={"page": 2, "limit": 2})
+    first_page = client.get(
+        f"/transactions/{account_id}", params={"page": 1, "limit": 2}
+    )
+    second_page = client.get(
+        f"/transactions/{account_id}", params={"page": 2, "limit": 2}
+    )
 
     assert first_page.status_code == 200
     first_page_body = first_page.json()
