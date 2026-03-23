@@ -27,6 +27,9 @@ export default function Account({
             <p className="mt-1 text-sm text-(--sea-ink-soft)">
               Account Number: {account.account_number}
             </p>
+            <p className="mt-1 text-sm text-(--sea-ink-soft)">
+              Routing Number: {account.routing_number}
+            </p>
           </div>
 
           {children}

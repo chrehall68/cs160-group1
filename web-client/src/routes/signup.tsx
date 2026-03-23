@@ -1,3 +1,4 @@
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Link,
   createFileRoute,
@@ -5,6 +6,7 @@ import {
   useRouter,
 } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
+import { apiRequest, getErrorMessage } from '../lib/api'
 import { isAuthenticated, setAuthSession } from '../lib/auth'
 
 export const Route = createFileRoute('/signup')({
@@ -26,6 +28,7 @@ const digitsOnly = (value: string) => value.replace(/\D/g, '')
 
 function SignUp() {
   const router = useRouter()
+  const queryClient = useQueryClient()
 
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -43,29 +46,10 @@ function SignUp() {
   const [zipCode, setZipCode] = useState('')
   const [country, setCountry] = useState('USA')
 
-  const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  // scroll to top when there's an error
-  useEffect(() => {
-    if (error) {
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-    }
-  }, [error])
-
-  const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    setError(null)
-
-    // some basic client-side validation
-    if (password !== confirmPassword) {
-      setError('Passwords do not match')
-      return
-    }
-
-    setIsSubmitting(true)
-    try {
-      const response = await fetch('/api/user', {
+  const signupMutation = useMutation({
+    mutationFn: () =>
+      apiRequest<SignupResponse>('/api/user', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -86,43 +70,48 @@ function SignUp() {
             country,
           },
         }),
-      })
-
-      if (!response.ok) {
-        if (response.status === 422) {
-          const data = await response.json().catch(() => null)
-          const details = Array.isArray(data?.detail)
-            ? data.detail
-                .map((issue: { msg?: string }) => issue.msg)
-                .filter(Boolean)
-            : []
-          setError(
-            details.length > 0
-              ? `Failed to create account: ${details.join(', ')}`
-              : 'Failed to create account. Please check your form values.',
-          )
-          return
-        }
-
-        const data = await response.json().catch(() => null)
-        setError(data?.detail ?? 'Failed to create account. Please try again.')
-        return
-      }
-
-      const data = (await response.json()) as SignupResponse
+      }),
+    onSuccess: (data) => {
       if (!data.access_token || !data.user_id) {
-        setError('Account created but auth session could not be created')
-        return
+        throw new Error('Account created but auth session could not be created')
       }
 
+      queryClient.clear()
       setAuthSession(data.access_token, data.role, data.user_id)
       router.navigate({ to: '/dashboard' })
-    } catch {
-      setError('Failed to create account. Please try again.')
-    } finally {
-      setIsSubmitting(false)
+    },
+  })
+
+  // scroll to top when there's an error
+  useEffect(() => {
+    if (error) {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }, [error])
+
+  const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setError(null)
+
+    // some basic client-side validation
+    if (password !== confirmPassword) {
+      setError('Passwords do not match')
+      return
+    }
+
+    try {
+      await signupMutation.mutateAsync()
+    } catch (mutationError) {
+      setError(
+        getErrorMessage(
+          mutationError,
+          'Failed to create account. Please try again.',
+        ),
+      )
     }
   }
+
+  const isSubmitting = signupMutation.isPending
 
   return (
     <main className="page-wrap px-4 pb-8 pt-14">

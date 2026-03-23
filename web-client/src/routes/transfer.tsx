@@ -1,6 +1,10 @@
+import { DecimalInput, IntegerInput } from '#/components/Inputs'
+import { apiRequest, getErrorMessage } from '#/lib/api'
+import { fetchAccounts, queryKeys } from '#/lib/queries'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
+import { useEffect, useState } from 'react'
 import { isAuthenticated } from '../lib/auth'
-import { useState } from 'react'
 
 export const Route = createFileRoute('/transfer')({
   beforeLoad: () => {
@@ -11,25 +15,109 @@ export const Route = createFileRoute('/transfer')({
   component: Transfer,
 })
 function Transfer() {
-  const [fromAccount, setFromAccount] = useState('checking')
+  // form data state
+  const [selectedAccountId, setSelectedAccountId] = useState('')
   const [toAccount, setToAccount] = useState('')
   const [routingNumber, setRoutingNumber] = useState('')
   const [amount, setAmount] = useState('')
   const [isRecurring, setIsRecurring] = useState(false)
   const [frequency, setFrequency] = useState('weekly')
   const [startDate, setStartDate] = useState('')
+  // display state
+  const [formError, setFormError] = useState('')
+  const [success, setSuccess] = useState('')
+  const queryClient = useQueryClient()
+  const accountsQuery = useQuery({
+    queryKey: queryKeys.accounts,
+    queryFn: fetchAccounts,
+  })
 
-  const handleSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {
+  // display initial data
+  useEffect(() => {
+    if (!selectedAccountId && accountsQuery.data?.length) {
+      setSelectedAccountId(String(accountsQuery.data[0].account_id))
+    }
+  }, [accountsQuery.data, selectedAccountId])
+
+  // handlers for transfers
+  const onSuccess = async (msg: string) => {
+    setSuccess(msg)
+    // clear form data
+    setToAccount('')
+    setRoutingNumber('')
+    setAmount('')
+    setFrequency('')
+    setStartDate('')
+    setIsRecurring(false)
+    await queryClient.invalidateQueries({ queryKey: queryKeys.accounts })
+    await queryClient.invalidateQueries({
+      queryKey: queryKeys.accountTransactions(selectedAccountId),
+    })
+  }
+
+  const transferMutation = useMutation({
+    mutationFn: () =>
+      apiRequest('/api/transfer/internal', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from_account_id: Number(selectedAccountId),
+          to_account_number: toAccount,
+          to_routing_number: routingNumber,
+          amount,
+        }),
+      }),
+    onSuccess: async () => onSuccess('Transfer succeeded'),
+  })
+  const recurringTransferMutation = useMutation({
+    mutationFn: () =>
+      apiRequest('/api/recurring', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from_account_id: Number(selectedAccountId),
+          payee_account_number: toAccount,
+          payee_routing_number: routingNumber,
+          amount,
+          frequency,
+          next_payment_date: startDate,
+        }),
+      }),
+    onSuccess: async () => onSuccess('Scheduled transfer'),
+  })
+  const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
-    // transfer logic stub
+
+    setFormError('')
+    setSuccess('')
+
+    if (!selectedAccountId) {
+      setFormError('Please enter a valid account.')
+      return
+    }
     if (isRecurring) {
-      alert(
-        `Recurring ${frequency} transfer submitted! Starting on ${startDate}`,
-      )
+      await recurringTransferMutation.mutateAsync()
     } else {
-      alert('Transfer submitted!')
+      await transferMutation.mutateAsync()
     }
   }
+  // display state logic
+  const error =
+    formError ||
+    (accountsQuery.isError &&
+      getErrorMessage(accountsQuery.error, 'Could not load accounts.')) ||
+    (!selectedAccountId && !accountsQuery.isLoading
+      ? 'Please create an account before making a deposit.'
+      : '') ||
+    (transferMutation.isError &&
+      getErrorMessage(transferMutation.error, 'Transfer failed.')) ||
+    (recurringTransferMutation.isError &&
+      getErrorMessage(recurringTransferMutation.error, 'Transfer failed.')) ||
+    ''
 
   return (
     <main className="page-wrap px-4 pb-8 pt-14">
@@ -40,14 +128,18 @@ function Transfer() {
         <h2 className="text-2xl font-bold">Transfer Money</h2>
 
         <div>
-          <label className="block text-sm font-medium">From Account:</label>
+          <label className="block text-sm font-medium">Account:</label>
           <select
-            value={fromAccount}
-            onChange={(e) => setFromAccount(e.target.value)}
+            value={selectedAccountId}
+            onChange={(e) => setSelectedAccountId(e.target.value)}
             className="mt-1 w-full rounded border px-3 py-2"
+            disabled={accountsQuery.isLoading || !accountsQuery.data?.length}
           >
-            <option value="checking">Checking ••••1234</option>
-            <option value="savings">Savings ••••8832</option>
+            {accountsQuery.data?.map((account) => (
+              <option key={account.account_id} value={account.account_id}>
+                {account.account_type} ••••{account.account_number.slice(-4)}
+              </option>
+            ))}
           </select>
         </div>
 
@@ -55,38 +147,27 @@ function Transfer() {
           <label className="block text-sm font-medium">
             To Account Number:
           </label>
-          <input
-            type="text"
-            value={toAccount}
-            onChange={(e) => setToAccount(e.target.value)}
+          <IntegerInput
+            val={toAccount}
+            setVal={setToAccount}
             placeholder="Enter account number"
-            className="mt-1 w-full rounded border px-3 py-2"
             required
           />
         </div>
 
         <div>
           <label className="block text-sm font-medium">Routing Number:</label>
-          <input
-            type="text"
-            value={routingNumber}
-            onChange={(e) => setRoutingNumber(e.target.value)}
+          <IntegerInput
+            val={routingNumber}
+            setVal={setRoutingNumber}
             placeholder="Enter routing number"
-            className="mt-1 w-full rounded border px-3 py-2"
             required
           />
         </div>
 
         <div>
           <label className="block text-sm font-medium">Amount:</label>
-          <input
-            type="number"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder="$0.00"
-            className="mt-1 w-full rounded border px-3 py-2"
-            required
-          />
+          <DecimalInput val={amount} setVal={setAmount} required />
         </div>
 
         <div className="border-t pt-4">
@@ -97,9 +178,7 @@ function Transfer() {
               onChange={(e) => setIsRecurring(e.target.checked)}
               className="h-4 w-4 rounded"
             />
-            <span className="ml-2 text-sm font-medium">
-              Set up recurring transfer
-            </span>
+            <span className="ml-2 text-sm font-medium">Schedule for later</span>
           </label>
         </div>
 
@@ -112,6 +191,7 @@ function Transfer() {
                 onChange={(e) => setFrequency(e.target.value)}
                 className="mt-1 w-full rounded border px-3 py-2"
               >
+                <option value="once">Once</option>
                 <option value="weekly">Weekly</option>
                 <option value="biweekly">Biweekly</option>
                 <option value="monthly">Monthly</option>
@@ -131,9 +211,12 @@ function Transfer() {
           </div>
         )}
 
+        {error && <p className="text-sm text-red-600">{error}</p>}
+        {success && <p className="text-sm text-green-600">{success}</p>}
+
         <button
           type="submit"
-          className="w-full rounded bg-[var(--lagoon)] px-4 py-2 font-semibold text-white hover:bg-[var(--lagoon-deep)]"
+          className="w-full rounded bg-(--lagoon) px-4 py-2 font-semibold text-white hover:bg-[var(--lagoon-deep)]"
         >
           Submit Transfer
         </button>

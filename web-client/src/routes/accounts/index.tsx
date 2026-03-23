@@ -1,8 +1,11 @@
 import Account from '#/components/Account'
 import '@/lib/types'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { apiRequest, getErrorMessage } from '../../lib/api'
 import { isAuthenticated } from '../../lib/auth'
+import { fetchAccounts, queryKeys } from '../../lib/queries'
 
 export const Route = createFileRoute('/accounts/')({
   beforeLoad: () => {
@@ -14,60 +17,43 @@ export const Route = createFileRoute('/accounts/')({
 })
 
 function Accounts() {
-  const [accounts, setAccounts] = useState<AccountType[]>([])
   const [accountType, setAccountType] = useState('checking')
-  const [error, setError] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
   const [isCreating, setIsCreating] = useState(false)
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const accountsQuery = useQuery({
+    queryKey: queryKeys.accounts,
+    queryFn: fetchAccounts,
+  })
 
-  async function getAccounts() {
-    setIsLoading(true)
+  const createAccountMutation = useMutation({
+    mutationFn: async () =>
+      apiRequest('/api/accounts/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ account_type: accountType }),
+      }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.accounts })
+    },
+  })
 
-    try {
-      const res = await fetch('/api/accounts')
-      const data = await res.json()
-
-      if (!res.ok) {
-        throw new Error(data.detail)
-      }
-
-      setAccounts(data.accounts)
-      setError(null)
-    } catch (err) {
-      console.error('Error fetching accounts:', err)
-      setError(err instanceof Error ? err.message : 'Unable to load accounts.')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    getAccounts()
-  }, [])
+  const error =
+    (accountsQuery.isError &&
+      getErrorMessage(accountsQuery.error, 'Unable to load accounts.')) ||
+    (createAccountMutation.isError &&
+      getErrorMessage(
+        createAccountMutation.error,
+        'Unable to create account.',
+      )) ||
+    null
 
   async function createAccount(event: React.SubmitEvent<HTMLFormElement>) {
     event.preventDefault()
     setIsCreating(true)
 
     try {
-      const res = await fetch('/api/accounts/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ account_type: accountType }),
-      })
-
-      const data = await res.json().catch(() => null)
-
-      if (!res.ok) {
-        throw new Error(data?.detail ?? 'Unable to create account.')
-      }
-
-      setError(null)
-      await getAccounts()
-    } catch (err) {
-      console.error('Error creating account:', err)
-      setError(err instanceof Error ? err.message : 'Unable to create account.')
+      await createAccountMutation.mutateAsync()
     } finally {
       setIsCreating(false)
     }
@@ -88,12 +74,12 @@ function Accounts() {
 
         <div className="grid gap-6 lg:grid-cols-[1.6fr_0.9fr]">
           <div className="space-y-4">
-            {isLoading ? (
+            {accountsQuery.isLoading ? (
               <div className="rounded-lg bg-white/80 p-6 shadow-md">
                 <p className="text-(--sea-ink-soft)">Loading accounts...</p>
               </div>
-            ) : accounts.length > 0 ? (
-              accounts.map((account) => (
+            ) : (accountsQuery.data?.length ?? 0) > 0 ? (
+              accountsQuery.data!.map((account) => (
                 <Account
                   key={account.account_id}
                   account={account}
@@ -110,8 +96,7 @@ function Accounts() {
               <div className="rounded-lg bg-white/80 p-6 shadow-md">
                 <p className="font-semibold">No active accounts found.</p>
                 <p className="mt-1 text-sm text-(--sea-ink-soft)">
-                  Use the panel on the right to create a checking or savings
-                  account.
+                  Create a checking or savings account today!
                 </p>
               </div>
             )}

@@ -1,8 +1,10 @@
+import { useQueryClient } from '@tanstack/react-query'
 import { Link, useRouter } from '@tanstack/react-router'
 import { clearAuthSession, useAuthSession } from '../lib/auth'
 
 export default function Header() {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const auth = useAuthSession()
   const isLoggedIn = Boolean(auth.token)
   const isAdmin = auth.role === 'admin'
@@ -13,6 +15,7 @@ export default function Header() {
     } catch {
       // Local logout still proceeds if server logout fails.
     } finally {
+      queryClient.clear()
       clearAuthSession()
       router.navigate({ to: '/login' })
     }

@@ -8,25 +8,22 @@ from dependencies.auth import AuthDep
 from models import (
     Account,
     Transaction,
-    TransactionType,
-    TransactionStatus,
-    Transfer,
-    TransferDirection,
     RecurringPayment,
     LedgerEntry,
 )
 from dtos.transactions import (
-    TransferRequest,
+    InternalTransferRequest,
     RecurringPaymentRequest,
     TransactionResponse,
 )
+from lib.transfers import process_transfer, TransferException
 
 router = APIRouter()
 
 
 @router.post("/transfer/internal")
 def transfer_money(
-    request: TransferRequest,
+    request: InternalTransferRequest,
     session: SessionDep,
     user_info: AuthDep,
 ):
@@ -51,42 +48,20 @@ def transfer_money(
             detail="Account does not belong to user",
         )
 
-    # check balance
-    if from_account.balance < request.amount:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Insufficient funds",
-        )
-
     try:
-        # subtract money
-        from_account.balance -= request.amount
-        session.add(from_account)
-
-        # create transaction
-        txn = Transaction(
-            account_id=request.from_account_id,
-            transaction_type=TransactionType.TRANSFER,
-            amount=request.amount,
-            status=TransactionStatus.COMPLETED,
-            description="Transfer",
+        process_transfer(
+            request.from_account_id,
+            request.to_account_number,
+            request.to_routing_number,
+            request.amount,
+            "Transfer",
+            session,
         )
-        session.add(txn)
-        session.flush()
-
-        # create transfer record
-        assert txn.transaction_id
-        transfer = Transfer(
-            transaction_id=txn.transaction_id,
-            type=request.transfer_type,
-            direction=TransferDirection.OUTGOING,
-        )
-        session.add(transfer)
-
-        session.commit()
 
         return {"message": "Transfer successful"}
 
+    except TransferException as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.reason)
     except Exception:
         session.rollback()
         raise HTTPException(
@@ -126,7 +101,6 @@ def create_recurring_payment(
             from_account_id=request.from_account_id,
             payee_account_number=request.payee_account_number,
             payee_routing_number=request.payee_routing_number,
-            transfer_type=request.transfer_type,
             amount=request.amount,
             frequency=request.frequency,
             next_payment_date=request.next_payment_date,

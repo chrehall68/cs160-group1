@@ -28,3 +28,20 @@ def register_user(client, username: str | None = None) -> dict:
     response = client.post("/user", json=payload)
     assert response.status_code == 200
     return payload
+
+
+def create_account(client, account_type: str = "checking") -> int:
+    response = client.post("/accounts/create", json={"account_type": account_type})
+    assert response.status_code == 200
+    return response.json()["account_id"]
+
+
+def make_atm_address() -> dict:
+    return {
+        "street": "2 ATM Plaza",
+        "unit": None,
+        "city": "San Diego",
+        "state": "CA",
+        "zipcode": "92101",
+        "country": "USA",
+    }

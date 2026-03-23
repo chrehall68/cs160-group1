@@ -1,6 +1,10 @@
+import { DecimalInput } from '#/components/Inputs'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import { isAuthenticated } from '../lib/auth'
 import { useEffect, useState } from 'react'
+import { apiRequest, getErrorMessage } from '../lib/api'
+import { isAuthenticated } from '../lib/auth'
+import { fetchAccounts, queryKeys } from '../lib/queries'
 
 export const Route = createFileRoute('/withdraw')({
   beforeLoad: () => {
@@ -12,7 +16,6 @@ export const Route = createFileRoute('/withdraw')({
 })
 
 function Withdraw() {
-  const [accounts, setAccounts] = useState<AccountType[]>([])
   const [selectedAccountId, setSelectedAccountId] = useState('')
   const [amount, setAmount] = useState('')
   const [street, setStreet] = useState('')
@@ -21,48 +24,23 @@ function Withdraw() {
   const [state, setState] = useState('')
   const [zipcode, setZipcode] = useState('')
   const [country, setCountry] = useState('USA')
-  const [error, setError] = useState('')
+  const [formError, setFormError] = useState('')
   const [success, setSuccess] = useState('')
-  const [loading, setLoading] = useState(false)
+  const queryClient = useQueryClient()
+  const accountsQuery = useQuery({
+    queryKey: queryKeys.accounts,
+    queryFn: fetchAccounts,
+  })
 
   useEffect(() => {
-    async function fetchAccounts() {
-      try {
-        const response = await fetch('/api/accounts')
-        if (!response.ok) {
-          throw new Error('Failed to load accounts')
-        }
-        const data = await response.json()
-        const fetchedAccounts = data.accounts ?? data
-        setAccounts(fetchedAccounts)
-
-        if (fetchedAccounts.length > 0) {
-          setSelectedAccountId(String(fetchedAccounts[0].account_id))
-        }
-      } catch (err) {
-        console.error(err)
-        setError('Could not load accounts.')
-      }
+    if (!selectedAccountId && accountsQuery.data?.length) {
+      setSelectedAccountId(String(accountsQuery.data[0].account_id))
     }
+  }, [accountsQuery.data, selectedAccountId])
 
-    fetchAccounts()
-  }, [])
-
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setError('')
-    setSuccess('')
-
-    const parsedAmount = parseFloat(amount)
-    if (!selectedAccountId || isNaN(parsedAmount) || parsedAmount <= 0) {
-      setError('Please enter a valid account and amount.')
-      return
-    }
-
-    setLoading(true)
-
-    try {
-      const response = await fetch('/api/withdraw', {
+  const withdrawMutation = useMutation({
+    mutationFn: (parsedAmount: number) =>
+      apiRequest('/api/withdraw', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -79,14 +57,8 @@ function Withdraw() {
             country,
           },
         }),
-      })
-
-      const data = await response.json().catch(() => null)
-
-      if (!response.ok) {
-        throw new Error(data?.detail || 'Withdrawal failed.')
-      }
-
+      }),
+    onSuccess: async () => {
       setSuccess('Withdrawal submitted successfully.')
       setAmount('')
       setStreet('')
@@ -95,13 +67,39 @@ function Withdraw() {
       setState('')
       setZipcode('')
       setCountry('USA')
-    } catch (err) {
-      console.error(err)
-      setError(err instanceof Error ? err.message : 'Withdrawal failed.')
-    } finally {
-      setLoading(false)
+      await queryClient.invalidateQueries({ queryKey: queryKeys.accounts })
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.accountTransactions(selectedAccountId),
+      })
+    },
+  })
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setFormError('')
+    setSuccess('')
+
+    const parsedAmount = parseFloat(amount)
+    if (!selectedAccountId || isNaN(parsedAmount) || parsedAmount <= 0) {
+      setFormError('Please enter a valid account and amount.')
+      return
     }
+
+    try {
+      await withdrawMutation.mutateAsync(parsedAmount)
+    } catch {}
   }
+
+  const error =
+    formError ||
+    (accountsQuery.isError &&
+      getErrorMessage(accountsQuery.error, 'Could not load accounts.')) ||
+    (!selectedAccountId && !accountsQuery.isLoading
+      ? 'Please create an account before making a withdrawal.'
+      : '') ||
+    (withdrawMutation.isError &&
+      getErrorMessage(withdrawMutation.error, 'Withdrawal failed.')) ||
+    ''
 
   return (
     <main className="page-wrap px-4 pb-8 pt-14">
@@ -117,8 +115,9 @@ function Withdraw() {
             value={selectedAccountId}
             onChange={(e) => setSelectedAccountId(e.target.value)}
             className="mt-1 w-full rounded border px-3 py-2"
+            disabled={accountsQuery.isLoading || !accountsQuery.data?.length}
           >
-            {accounts.map((account) => (
+            {accountsQuery.data?.map((account) => (
               <option key={account.account_id} value={account.account_id}>
                 {account.account_type} ••••{account.account_number.slice(-4)}
               </option>
@@ -128,15 +127,7 @@ function Withdraw() {
 
         <div>
           <label className="block text-sm font-medium">Amount:</label>
-          <input
-            type="text"
-            inputMode="decimal"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder="0.00"
-            className="mt-1 w-full rounded border px-3 py-2"
-            required
-          />
+          <DecimalInput val={amount} setVal={setAmount} required />
         </div>
 
         <div className="border-t pt-4">
@@ -201,10 +192,10 @@ function Withdraw() {
 
         <button
           type="submit"
-          disabled={loading}
+          disabled={withdrawMutation.isPending || accountsQuery.isLoading}
           className="w-full rounded bg-[var(--lagoon)] px-4 py-2 font-semibold text-white hover:bg-[var(--lagoon-deep)] disabled:opacity-70"
         >
-          {loading ? 'Submitting...' : 'Submit Withdrawal'}
+          {withdrawMutation.isPending ? 'Submitting...' : 'Submit Withdrawal'}
         </button>
       </form>
     </main>
