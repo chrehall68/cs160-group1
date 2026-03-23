@@ -1,6 +1,10 @@
+import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { isAuthenticated } from '../lib/auth'
 import { useState } from 'react'
+import { getErrorMessage } from '../lib/api'
+import { queryKeys, searchNearbyAtms } from '../lib/queries'
+import type { ATMResult } from '../lib/queries'
 
 export const Route = createFileRoute('/atm')({
   beforeLoad: () => {
@@ -11,49 +15,25 @@ export const Route = createFileRoute('/atm')({
   component: ATM,
 })
 
-type ATMResult = {
-  address: string
-  distance: string
-  open: boolean | null
-  lat: number
-  lng: number
-}
-
-
 export default function ATM() {
   const [address, setAddress] = useState('')
-  const [results, setResults] = useState<ATMResult[]>([])
-  const [searched, setSearched] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [submittedAddress, setSubmittedAddress] = useState('')
+  const atmQuery = useQuery<ATMResult[]>({
+    queryKey: queryKeys.atmSearch(submittedAddress),
+    queryFn: () => searchNearbyAtms(submittedAddress),
+    enabled: Boolean(submittedAddress),
+  })
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    setLoading(true)
-    setError('')
-    setResults([])
-    setSearched(false)
-
-    try {
-      const geoRes = await fetch(`/api/atm/geocode?address=${encodeURIComponent(address)}`)
-      const geoData = await geoRes.json()
-      if (!geoData.results?.length)
-        throw new Error('Location not found. Try a full address, city, or zip code.')
-      const { lat, lng } = geoData.results[0].geometry.location
-
-      const placesRes = await fetch(`/api/atm/nearby?lat=${lat}&lng=${lng}`)
-      const placesData = await placesRes.json()
-
-      const atms: ATMResult[] = placesData.results || [];
-
-      setResults(atms)
-      setSearched(true)
-    } catch (err: any) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
+    setSubmittedAddress(address.trim())
   }
+
+  const results = atmQuery.data ?? []
+  const searched = Boolean(submittedAddress)
+  const loading = atmQuery.isFetching
+  const error =
+    atmQuery.isError && getErrorMessage(atmQuery.error, 'Search failed.')
 
   return (
     <main className="page-wrap px-4 pb-8 pt-14">

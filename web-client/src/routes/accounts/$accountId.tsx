@@ -1,9 +1,20 @@
 import Account from '#/components/Account'
 import Popup from '#/components/Popup'
 import { formatCurrency } from '#/lib/utils'
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query'
 import { clearAuthSession, isAuthenticated } from '@/lib/auth'
 import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
+import { apiRequest, getErrorMessage, isApiError } from '../../lib/api'
+import {
+  fetchAccount,
+  fetchTransactions,
+  queryKeys,
+} from '../../lib/queries'
 
 export const Route = createFileRoute('/accounts/$accountId')({
   beforeLoad: () => {
@@ -31,35 +42,65 @@ function Transaction({ transaction }: { transaction: TransactionType }) {
 }
 function Transactions({ accountId }: { accountId: string }) {
   const [page, setPage] = useState<number>(1)
-  const [limit, setLimit] = useState<number>(10)
-  const [numPages, setNumPages] = useState<number>(1)
-  const [transactions, setTransactions] = useState<TransactionType[]>([])
-  const fetchTransactions = async () => {
-    const searchParams = new URLSearchParams()
-    searchParams.append('page', `${page}`)
-    searchParams.append('limit', `${limit}`)
-    const response = await fetch(
-      `/api/transactions/${accountId}?${searchParams}`,
-    )
-    // if response isn't ok, it's because of an error
-    // we'll let the Account component handle the redirect
-    if (response.ok) {
-      const data = await response.json()
-      setTransactions(data.transactions)
-      setNumPages(data.total_pages)
-    }
-  }
-  useEffect(() => {
-    fetchTransactions()
-  }, [])
+  const limit = 10
+  const transactionsQuery = useQuery({
+    queryKey: queryKeys.transactions(accountId, page, limit),
+    queryFn: () => fetchTransactions(accountId, page, limit),
+  })
 
-  // TODO - handle different pages
+  useEffect(() => {
+    setPage(1)
+  }, [accountId])
+
+  const transactions = transactionsQuery.data?.transactions ?? []
+  const numPages = transactionsQuery.data?.total_pages ?? 1
+
   return (
     <div className="flex flex-col space-y-4">
-      {transactions.length === 0 ? (
+      {transactionsQuery.isLoading ? (
+        <p>Loading transactions...</p>
+      ) : transactionsQuery.isError ? (
+        <p className="text-sm text-red-600">
+          {getErrorMessage(
+            transactionsQuery.error,
+            'Unable to load transactions.',
+          )}
+        </p>
+      ) : transactions.length === 0 ? (
         <p>No transactions.</p>
       ) : (
-        transactions.map((t) => <Transaction transaction={t} />)
+        transactions.map((transaction) => (
+          <Transaction
+            key={transaction.transaction_id}
+            transaction={transaction}
+          />
+        ))
+      )}
+
+      {numPages > 1 && (
+        <div className="flex items-center justify-end gap-3">
+          <button
+            type="button"
+            onClick={() => setPage((current) => Math.max(1, current - 1))}
+            disabled={page === 1 || transactionsQuery.isFetching}
+            className="rounded border border-(--line) bg-white px-3 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Previous
+          </button>
+          <p className="text-sm text-(--sea-ink-soft)">
+            Page {page} of {numPages}
+          </p>
+          <button
+            type="button"
+            onClick={() =>
+              setPage((current) => Math.min(numPages, current + 1))
+            }
+            disabled={page === numPages || transactionsQuery.isFetching}
+            className="rounded border border-(--line) bg-white px-3 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Next
+          </button>
+        </div>
       )}
     </div>
   )
@@ -67,68 +108,62 @@ function Transactions({ accountId }: { accountId: string }) {
 
 function AccountPage() {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const { accountId } = Route.useParams()
-  const [account, setAccount] = useState<AccountType | null>(null)
   const [showPopup, setShowPopup] = useState(false)
-  const [closeError, setCloseError] = useState<string | null>(null)
-  const [isClosing, setIsClosing] = useState(false)
+  const accountQuery = useQuery({
+    queryKey: queryKeys.account(accountId),
+    queryFn: () => fetchAccount(accountId),
+  })
 
-  // ===== fetchers =====
   useEffect(() => {
-    async function fetchAccount() {
-      try {
-        const response = await fetch(`/api/accounts/${accountId}`)
-        if (response.ok) {
-          const data = await response.json()
-          setAccount(data)
-        } else if (response.status === 401) {
-          clearAuthSession()
-          router.navigate({ to: '/login' })
-        } else if (response.status === 403) {
-          // not authorized
-          router.navigate({ to: '/accounts' })
-        } else if (response.status === 404) {
-          // not found
-          router.navigate({ to: '/accounts' })
-        }
-      } catch (error) {
-        console.error('Error fetching account:', error)
-      }
+    if (!isApiError(accountQuery.error)) {
+      return
     }
-    fetchAccount()
-  }, [accountId, router])
+
+    if (accountQuery.error.status === 401) {
+      queryClient.clear()
+      clearAuthSession()
+      router.navigate({ to: '/login' })
+      return
+    }
+
+    if (accountQuery.error.status === 403 || accountQuery.error.status === 404) {
+      router.navigate({ to: '/accounts' })
+    }
+  }, [accountQuery.error, queryClient, router])
+
+  const closeAccountMutation = useMutation({
+    mutationFn: () =>
+      apiRequest(`/api/accounts/${accountId}`, {
+        method: 'DELETE',
+      }),
+    onSuccess: async () => {
+      setShowPopup(false)
+      await queryClient.invalidateQueries({ queryKey: queryKeys.accounts })
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.transactionsRoot,
+      })
+      router.navigate({ to: '/accounts' })
+    },
+    onError: (error) => {
+      if (isApiError(error) && error.status === 401) {
+        queryClient.clear()
+        clearAuthSession()
+        router.navigate({ to: '/login' })
+      }
+    },
+  })
 
   async function handleCloseAccount() {
-    setIsClosing(true)
-    setCloseError(null)
-
     try {
-      const response = await fetch(`/api/accounts/${accountId}`, {
-        method: 'DELETE',
-      })
-      const data = await response.json().catch(() => null)
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          clearAuthSession()
-          router.navigate({ to: '/login' })
-          return
-        }
-
-        throw new Error(data?.detail ?? 'Unable to close account.')
-      }
-
-      setShowPopup(false)
-      router.navigate({ to: '/accounts' })
-    } catch (error) {
-      console.error('Error closing account:', error)
-      setCloseError(
-        error instanceof Error ? error.message : 'Unable to close account.',
-      )
-    } finally {
-      setIsClosing(false)
-    }
+      await closeAccountMutation.mutateAsync()
+    } catch {}
   }
+
+  const closeError = closeAccountMutation.isError
+    ? getErrorMessage(closeAccountMutation.error, 'Unable to close account.')
+    : null
 
   // ===== display =====
   return (
@@ -138,7 +173,10 @@ function AccountPage() {
         <Popup
           title="Close this account?"
           description="Confirm that you want to close this account. The request will fail if the balance is not zero."
-          onClose={() => setShowPopup(false)}
+          onClose={() => {
+            closeAccountMutation.reset()
+            setShowPopup(false)
+          }}
         >
           <div className="space-y-4">
             {closeError && (
@@ -150,7 +188,10 @@ function AccountPage() {
             <div className="flex justify-end gap-3">
               <button
                 type="button"
-                onClick={() => setShowPopup(false)}
+                onClick={() => {
+                  closeAccountMutation.reset()
+                  setShowPopup(false)
+                }}
                 className="rounded border border-(--line) bg-white px-4 py-2 font-semibold text-[var(--sea-ink)] hover:bg-black/5"
               >
                 Cancel
@@ -158,10 +199,12 @@ function AccountPage() {
               <button
                 type="button"
                 onClick={handleCloseAccount}
-                disabled={isClosing}
+                disabled={closeAccountMutation.isPending}
                 className="rounded bg-red-600 px-4 py-2 font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-70"
               >
-                {isClosing ? 'Closing...' : 'Yes, Close Account'}
+                {closeAccountMutation.isPending
+                  ? 'Closing...'
+                  : 'Yes, Close Account'}
               </button>
             </div>
           </div>
@@ -174,12 +217,22 @@ function AccountPage() {
         </div>
 
         <h3 className="text-xl font-bold">Account {accountId}</h3>
-        {account && (
-          <Account account={account}>
+        {accountQuery.isLoading && (
+          <div className="rounded-lg bg-white/80 p-6 shadow-md">
+            <p className="text-(--sea-ink-soft)">Loading account...</p>
+          </div>
+        )}
+        {accountQuery.isError && !isApiError(accountQuery.error) && (
+          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 shadow-sm">
+            {getErrorMessage(accountQuery.error, 'Unable to load account.')}
+          </div>
+        )}
+        {accountQuery.data && (
+          <Account account={accountQuery.data}>
             <button
               type="button"
               onClick={() => {
-                setCloseError(null)
+                closeAccountMutation.reset()
                 setShowPopup(true)
               }}
               className="rounded bg-red-600 px-4 py-2 font-semibold text-white hover:bg-red-700"

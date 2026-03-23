@@ -1,7 +1,10 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { clearAuthSession, isAuthenticated, useAuthSession } from '#/lib/auth'
 import Popup from '#/components/Popup'
 import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
+import { apiRequest, getErrorMessage, isApiError } from '../lib/api'
+import { fetchCustomer, queryKeys } from '../lib/queries'
 
 export const Route = createFileRoute('/profile')({
   beforeLoad: () => {
@@ -14,17 +17,48 @@ export const Route = createFileRoute('/profile')({
 
 function RouteComponent() {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const auth = useAuthSession()
-  const [firstName, setFirstName] = useState('')
-  const [lastName, setLastName] = useState('')
-  const [email, setEmail] = useState('')
-  const [phone, setPhone] = useState('')
-  const [isLoading, setIsLoading] = useState(true)
-  const [loadError, setLoadError] = useState<string | null>(null)
-  const [deleteError, setDeleteError] = useState<string | null>(null)
-  const [isDeleting, setIsDeleting] = useState(false)
   const [showDeletePopup, setShowDeletePopup] = useState(false)
+  const profileQuery = useQuery({
+    queryKey: queryKeys.customer,
+    queryFn: fetchCustomer,
+  })
 
+  useEffect(() => {
+    if (!isApiError(profileQuery.error) || profileQuery.error.status !== 401) {
+      return
+    }
+
+    queryClient.clear()
+    clearAuthSession()
+    router.navigate({ to: '/login' })
+  }, [profileQuery.error, queryClient, router])
+
+  const deleteUserMutation = useMutation({
+    mutationFn: async () => {
+      if (!auth.userId) {
+        throw new Error(
+          'Your session is missing a user id. Please sign in again.',
+        )
+      }
+
+      return apiRequest(`/api/user/${auth.userId}`, {
+        method: 'DELETE',
+      })
+    },
+    onSuccess: () => {
+      queryClient.clear()
+      clearAuthSession()
+      setShowDeletePopup(false)
+      router.navigate({ to: '/signup' })
+    },
+  })
+
+  const firstName = profileQuery.data?.first_name ?? ''
+  const lastName = profileQuery.data?.last_name ?? ''
+  const email = profileQuery.data?.email ?? ''
+  const phone = profileQuery.data?.phone ?? ''
   const fullName = `${firstName} ${lastName}`.trim() || 'User'
   const initials =
     [firstName, lastName]
@@ -34,99 +68,20 @@ function RouteComponent() {
       .slice(0, 2)
       .toUpperCase() || 'U'
 
-  useEffect(() => {
-    let isMounted = true
-
-    const loadProfile = async () => {
-      setIsLoading(true)
-      setLoadError(null)
-
-      try {
-        const response = await fetch('/api/customer')
-        if (!response.ok) {
-          const data = await response.json().catch(() => null)
-
-          if (response.status === 401) {
-            clearAuthSession()
-            router.navigate({ to: '/login' })
-            return
-          }
-
-          throw new Error(data?.detail ?? 'Unable to load your profile.')
-        }
-
-        const data = (await response.json()) as {
-          first_name?: string | null
-          last_name?: string | null
-          email?: string | null
-          phone?: string | null
-          date_of_birth?: string | null
-        }
-
-        if (!isMounted) {
-          return
-        }
-
-        setFirstName(data.first_name ?? '')
-        setLastName(data.last_name ?? '')
-        setEmail(data.email ?? '')
-        setPhone(data.phone ?? '')
-      } catch (error) {
-        if (!isMounted) {
-          return
-        }
-
-        console.error('Error fetching user info:', error)
-        setLoadError(
-          error instanceof Error
-            ? error.message
-            : 'Unable to load your profile.',
-        )
-      } finally {
-        if (isMounted) {
-          setIsLoading(false)
-        }
-      }
-    }
-
-    loadProfile()
-
-    return () => {
-      isMounted = false
-    }
-  }, [router])
-
   const handleDeleteUser = async () => {
-    if (!auth.userId) {
-      setDeleteError('Your session is missing a user id. Please sign in again.')
-      return
-    }
-
-    setIsDeleting(true)
-    setDeleteError(null)
-
     try {
-      const response = await fetch(`/api/user/${auth.userId}`, {
-        method: 'DELETE',
-      })
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => null)
-        throw new Error(data?.detail ?? 'Unable to delete this user.')
-      }
-
-      clearAuthSession()
-      setShowDeletePopup(false)
-      router.navigate({ to: '/signup' })
-    } catch (error) {
-      console.error('Error deleting user:', error)
-      setDeleteError(
-        error instanceof Error ? error.message : 'Unable to delete this user.',
-      )
-    } finally {
-      setIsDeleting(false)
-    }
+      await deleteUserMutation.mutateAsync()
+    } catch {}
   }
+
+  const loadError =
+    profileQuery.isError &&
+    getErrorMessage(profileQuery.error, 'Unable to load your profile.')
+  const deleteError =
+    deleteUserMutation.isError &&
+    getErrorMessage(deleteUserMutation.error, 'Unable to delete this user.')
+  const isLoading = profileQuery.isLoading
+  const isDeleting = deleteUserMutation.isPending
 
   return (
     <main className="page-wrap px-4 pb-8 pt-14">
@@ -134,7 +89,10 @@ function RouteComponent() {
         <Popup
           title="Delete this user?"
           description="Confirm that you want to delete this user account. This cannot be undone, and active accounts must be closed first."
-          onClose={() => setShowDeletePopup(false)}
+          onClose={() => {
+            deleteUserMutation.reset()
+            setShowDeletePopup(false)
+          }}
         >
           <div className="space-y-4">
             {deleteError && (
@@ -146,7 +104,10 @@ function RouteComponent() {
             <div className="flex justify-end gap-3">
               <button
                 type="button"
-                onClick={() => setShowDeletePopup(false)}
+                onClick={() => {
+                  deleteUserMutation.reset()
+                  setShowDeletePopup(false)
+                }}
                 className="rounded border border-[var(--line)] bg-white px-4 py-2 font-semibold text-[var(--sea-ink)] hover:bg-black/5"
               >
                 Cancel
@@ -253,7 +214,7 @@ function RouteComponent() {
               <button
                 type="button"
                 onClick={() => {
-                  setDeleteError(null)
+                  deleteUserMutation.reset()
                   setShowDeletePopup(true)
                 }}
                 disabled={isDeleting}

@@ -1,5 +1,6 @@
+import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { fetchCustomer, queryKeys } from '../lib/queries'
 import { isAuthenticated } from '../lib/auth'
 
 export const Route = createFileRoute('/dashboard')({
@@ -11,20 +12,12 @@ export const Route = createFileRoute('/dashboard')({
   component: Dashboard,
 })
 function Dashboard() {
-  const [name, setName] = useState('')
+  const customerQuery = useQuery({
+    queryKey: queryKeys.customer,
+    queryFn: fetchCustomer,
+  })
+  const name = customerQuery.data?.first_name || 'User'
 
-  useEffect(() => {
-    fetch('/api/customer')
-      .then((res) => res.json())
-      .then((data) => {
-        const firstName = data.first_name || 'User'
-        setName(firstName)
-      })
-      .catch((err) => {
-        console.error('Error fetching user info:', err)
-        setName('User')
-      })
-  }, [])
   return (
     <main className="page-wrap px-4 pb-8 pt-14">
       <section className="space-y-6">

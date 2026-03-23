@@ -1,3 +1,4 @@
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Link,
   createFileRoute,
@@ -5,6 +6,7 @@ import {
   useRouter,
 } from '@tanstack/react-router'
 import { useState } from 'react'
+import { apiRequest, getErrorMessage } from '../lib/api'
 import { isAuthenticated, setAuthSession } from '../lib/auth'
 
 export const Route = createFileRoute('/login')({
@@ -24,43 +26,39 @@ interface LoginResponse {
 
 function Login() {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    setError(null)
-    setIsSubmitting(true)
-
-    try {
-      const response = await fetch('/api/login', {
+  const loginMutation = useMutation({
+    mutationFn: () =>
+      apiRequest<LoginResponse>('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
-      })
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => null)
-        setError(data?.detail ?? 'Invalid username or password')
-        return
-      }
-
-      const data = (await response.json()) as LoginResponse
+      }),
+    onSuccess: (data) => {
       if (!data.access_token || !data.user_id) {
-        setError('Login succeeded but auth session could not be created')
-        return
+        throw new Error('Login succeeded but auth session could not be created')
       }
 
+      queryClient.clear()
       setAuthSession(data.access_token, data.role, data.user_id)
       router.navigate({ to: '/dashboard' })
-    } catch {
-      setError('Unable to sign in right now. Please try again.')
-    } finally {
-      setIsSubmitting(false)
-    }
+    },
+  })
+
+  const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
+    e.preventDefault()
+
+    try {
+      await loginMutation.mutateAsync()
+    } catch {}
   }
+
+  const error =
+    loginMutation.isError &&
+    getErrorMessage(loginMutation.error, 'Unable to sign in right now. Please try again.')
+  const isSubmitting = loginMutation.isPending
 
   return (
     <main className="page-wrap px-4 pb-8 pt-14">
