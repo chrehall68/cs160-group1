@@ -27,19 +27,21 @@ def process_recurring_payment(payment: RecurringPayment, session: Session):
     with the reason.
     """
 
-    # treat it like a regular transfer
+    # TODO - it would be nice to store the success / failure message
+    # and maybe limit the amount of retries we do on a failing payment
+
+    # first, treat it like a regular transfer
     process_transfer(
         payment.from_account_id,
         payment.payee_account_number,
         payment.payee_routing_number,
-        payment.transfer_type,
         payment.amount,
         "Recurring Payment",
         session,
         False,
     )
 
-    # update next payment date
+    # then, update next payment date
     if payment.frequency != RecurringFrequency.ONCE:
         payment.next_payment_date = (
             payment.next_payment_date + DELTAS[payment.frequency]
@@ -54,7 +56,6 @@ def process_transfer(
     from_account_id: int,
     payee_account_number: str,
     payee_routing_number: str,
-    transfer_type: TransferType,
     amount: Decimal,
     description: str,
     session: Session,
@@ -98,7 +99,6 @@ def process_transfer(
     assert transaction.transaction_id
     transfer = Transfer(
         transaction_id=transaction.transaction_id,
-        type=transfer_type,
         direction=TransferDirection.OUTGOING,
     )
     session.add(transfer)
@@ -111,11 +111,8 @@ def process_transfer(
     session.add(ledger1)
 
     # handle the other side too
-    if transfer_type == TransferType.INTERNAL:
+    if payee_routing_number == ROUTING_NUMBER:
         # need to validate that the complement exists
-        if payee_routing_number != ROUTING_NUMBER:
-            session.rollback()
-            raise TransferException("Invalid internal routing number")
         stmt = select(Account).where(Account.account_number == payee_account_number)
         payee = session.exec(stmt).first()
         if payee is None:
@@ -130,7 +127,6 @@ def process_transfer(
         # and create records
         transfer = Transfer(
             transaction_id=transaction.transaction_id,
-            type=transfer_type,
             direction=TransferDirection.INCOMING,
         )
         session.add(transfer)

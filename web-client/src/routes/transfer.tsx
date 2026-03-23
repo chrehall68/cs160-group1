@@ -1,6 +1,7 @@
-import { DecimalInput } from '#/components/DecimalInput'
+import { DecimalInput, IntegerInput } from '#/components/Inputs'
+import { apiRequest, getErrorMessage } from '#/lib/api'
 import { fetchAccounts, queryKeys } from '#/lib/queries'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { isAuthenticated } from '../lib/auth'
@@ -14,6 +15,7 @@ export const Route = createFileRoute('/transfer')({
   component: Transfer,
 })
 function Transfer() {
+  // form data state
   const [selectedAccountId, setSelectedAccountId] = useState('')
   const [toAccount, setToAccount] = useState('')
   const [routingNumber, setRoutingNumber] = useState('')
@@ -21,29 +23,101 @@ function Transfer() {
   const [isRecurring, setIsRecurring] = useState(false)
   const [frequency, setFrequency] = useState('weekly')
   const [startDate, setStartDate] = useState('')
+  // display state
+  const [formError, setFormError] = useState('')
+  const [success, setSuccess] = useState('')
   const queryClient = useQueryClient()
   const accountsQuery = useQuery({
     queryKey: queryKeys.accounts,
     queryFn: fetchAccounts,
   })
 
+  // display initial data
   useEffect(() => {
     if (!selectedAccountId && accountsQuery.data?.length) {
       setSelectedAccountId(String(accountsQuery.data[0].account_id))
     }
   }, [accountsQuery.data, selectedAccountId])
 
-  const handleSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {
+  // handlers for transfers
+  const onSuccess = async (msg: string) => {
+    setSuccess(msg)
+    // clear form data
+    setToAccount('')
+    setRoutingNumber('')
+    setAmount('')
+    setFrequency('')
+    setStartDate('')
+    setIsRecurring(false)
+    await queryClient.invalidateQueries({ queryKey: queryKeys.accounts })
+    await queryClient.invalidateQueries({
+      queryKey: queryKeys.accountTransactions(selectedAccountId),
+    })
+  }
+
+  const transferMutation = useMutation({
+    mutationFn: () =>
+      apiRequest('/api/transfer/internal', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from_account_id: Number(selectedAccountId),
+          to_account_number: toAccount,
+          to_routing_number: routingNumber,
+          amount,
+        }),
+      }),
+    onSuccess: async () => onSuccess('Transfer succeeded'),
+  })
+  const recurringTransferMutation = useMutation({
+    mutationFn: () =>
+      apiRequest('/api/recurring', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from_account_id: Number(selectedAccountId),
+          payee_account_number: toAccount,
+          payee_routing_number: routingNumber,
+          amount,
+          frequency,
+          next_payment_date: startDate,
+        }),
+      }),
+    onSuccess: async () => onSuccess('Scheduled transfer'),
+  })
+  const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
-    // transfer logic stub
+
+    setFormError('')
+    setSuccess('')
+
+    if (!selectedAccountId) {
+      setFormError('Please enter a valid account.')
+      return
+    }
     if (isRecurring) {
-      alert(
-        `Recurring ${frequency} transfer submitted! Starting on ${startDate}`,
-      )
+      await recurringTransferMutation.mutateAsync()
     } else {
-      alert('Transfer submitted!')
+      await transferMutation.mutateAsync()
     }
   }
+  // display state logic
+  const error =
+    formError ||
+    (accountsQuery.isError &&
+      getErrorMessage(accountsQuery.error, 'Could not load accounts.')) ||
+    (!selectedAccountId && !accountsQuery.isLoading
+      ? 'Please create an account before making a deposit.'
+      : '') ||
+    (transferMutation.isError &&
+      getErrorMessage(transferMutation.error, 'Transfer failed.')) ||
+    (recurringTransferMutation.isError &&
+      getErrorMessage(recurringTransferMutation.error, 'Transfer failed.')) ||
+    ''
 
   return (
     <main className="page-wrap px-4 pb-8 pt-14">
@@ -73,31 +147,27 @@ function Transfer() {
           <label className="block text-sm font-medium">
             To Account Number:
           </label>
-          <input
-            type="text"
-            value={toAccount}
-            onChange={(e) => setToAccount(e.target.value)}
+          <IntegerInput
+            val={toAccount}
+            setVal={setToAccount}
             placeholder="Enter account number"
-            className="mt-1 w-full rounded border px-3 py-2"
             required
           />
         </div>
 
         <div>
           <label className="block text-sm font-medium">Routing Number:</label>
-          <input
-            type="text"
-            value={routingNumber}
-            onChange={(e) => setRoutingNumber(e.target.value)}
+          <IntegerInput
+            val={routingNumber}
+            setVal={setRoutingNumber}
             placeholder="Enter routing number"
-            className="mt-1 w-full rounded border px-3 py-2"
             required
           />
         </div>
 
         <div>
           <label className="block text-sm font-medium">Amount:</label>
-          <DecimalInput val={amount} setVal={setAmount} />
+          <DecimalInput val={amount} setVal={setAmount} required />
         </div>
 
         <div className="border-t pt-4">
@@ -140,6 +210,9 @@ function Transfer() {
             </div>
           </div>
         )}
+
+        {error && <p className="text-sm text-red-600">{error}</p>}
+        {success && <p className="text-sm text-green-600">{success}</p>}
 
         <button
           type="submit"

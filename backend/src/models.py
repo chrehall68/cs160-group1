@@ -63,11 +63,6 @@ class TransactionStatus(str, Enum):
     FAILED = "failed"
 
 
-class TransferType(str, Enum):
-    INTERNAL = "internal"
-    EXTERNAL = "external"
-
-
 class RecurringFrequency(str, Enum):
     ONCE = "once"
     WEEKLY = "weekly"
@@ -267,7 +262,7 @@ class RecurringPayment(SQLModel, table=True):
     # info fields
     payee_account_number: str = Field(max_length=64)
     payee_routing_number: str = Field(max_length=64)
-    transfer_type: TransferType = Field(max_length=8)
+    # see Transfer for why we don't need type
     amount: Decimal = Field(gt=0.0, decimal_places=2, max_digits=18)
     currency: str = Field(default="USD", max_length=3)
     frequency: RecurringFrequency = Field(max_length=8)
@@ -355,7 +350,8 @@ class Transfer(SQLModel, table=True):
         ondelete="CASCADE",
     )
     transaction: Transaction = Relationship()
-    type: TransferType = Field(max_length=8)
+    # note that we no longer need a type field
+    # since the backend infers internal/external based on routing number
     direction: TransferDirection = Field(max_length=8)
 
 

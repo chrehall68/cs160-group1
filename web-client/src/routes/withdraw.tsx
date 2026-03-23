@@ -1,4 +1,4 @@
-import { DecimalInput } from '#/components/DecimalInput'
+import { DecimalInput } from '#/components/Inputs'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
@@ -127,7 +127,7 @@ function Withdraw() {
 
         <div>
           <label className="block text-sm font-medium">Amount:</label>
-          <DecimalInput val={amount} setVal={setAmount} />
+          <DecimalInput val={amount} setVal={setAmount} required />
         </div>
 
         <div className="border-t pt-4">
