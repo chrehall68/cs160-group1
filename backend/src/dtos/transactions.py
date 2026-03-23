@@ -4,7 +4,7 @@ from decimal import Decimal
 from models import TransferType, RecurringFrequency, LedgerType
 
 
-class TransferRequest(BaseModel):
+class InternalTransferRequest(BaseModel):
     from_account_id: int
     to_account_number: str
     to_routing_number: str
@@ -18,6 +18,9 @@ class TransferRequest(BaseModel):
         if v <= 0:
             raise ValueError("Amount must be positive")
         return v
+
+    # TODO - enforce that if transfer type is internal,
+    # the routing number is Online Bank's routing number
 
 
 class RecurringPaymentRequest(BaseModel):
