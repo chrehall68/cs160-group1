@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException, status
 from sqlmodel import select
 from dependencies.db import SessionDep
 from dependencies.auth import AuthDep
+from constants import ROUTING_NUMBER
 from models import (
     Account,
     AccountType,
@@ -68,7 +69,7 @@ def create_account(
 
         # generate a random unique account number
         account_number = str(random.randint(1000000000, 9999999999))
-        routing_number = "021000021"  # placeholder routing number
+        routing_number = ROUTING_NUMBER
 
         account = Account(
             customer_id=user.customer_id,
