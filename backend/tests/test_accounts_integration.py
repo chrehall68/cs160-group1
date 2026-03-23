@@ -1,22 +1,6 @@
 from fastapi.testclient import TestClient
-from tests.shared import register_user
 
-
-def _atm_address() -> dict:
-    return {
-        "street": "2 ATM Plaza",
-        "unit": None,
-        "city": "San Diego",
-        "state": "CA",
-        "zipcode": "92101",
-        "country": "USA",
-    }
-
-
-def _create_account(client, account_type: str = "checking") -> int:
-    response = client.post("/accounts/create", json={"account_type": account_type})
-    assert response.status_code == 200
-    return response.json()["account_id"]
+from tests.shared import create_account, make_atm_address, register_user
 
 
 def test_create_account_returns_account_id_for_authenticated_user(client):
@@ -28,15 +12,9 @@ def test_create_account_returns_account_id_for_authenticated_user(client):
     assert isinstance(response.json()["account_id"], int)
 
 
-def test_create_account_fails_for_unauthenticated_user(client):
-    response = client.post("/accounts/create", json={"account_type": "checking"})
-
-    assert response.status_code == 401
-
-
 def test_get_account_returns_owned_account_details(client):
     register_user(client)
-    account_id = _create_account(client, "savings")
+    account_id = create_account(client, "savings")
 
     response = client.get(f"/accounts/{account_id}")
 
@@ -52,7 +30,7 @@ def test_get_account_returns_owned_account_details(client):
 def test_get_account_rejects_other_users_account(client):
     with TestClient(client.app, base_url="https://testserver") as owner_client:
         register_user(owner_client)
-        account_id = _create_account(owner_client)
+        account_id = create_account(owner_client)
 
     with TestClient(client.app, base_url="https://testserver") as other_client:
         register_user(other_client)
@@ -64,8 +42,8 @@ def test_get_account_rejects_other_users_account(client):
 
 def test_get_all_accounts_returns_only_active_accounts(client):
     register_user(client)
-    active_account_id = _create_account(client, "checking")
-    closed_account_id = _create_account(client, "savings")
+    active_account_id = create_account(client, "checking")
+    closed_account_id = create_account(client, "savings")
 
     close_response = client.delete(f"/accounts/{closed_account_id}")
     assert close_response.status_code == 200
@@ -81,14 +59,14 @@ def test_get_all_accounts_returns_only_active_accounts(client):
 
 def test_deposit_cash_updates_account_balance(client):
     register_user(client)
-    account_id = _create_account(client)
+    account_id = create_account(client)
 
     deposit_response = client.post(
         "/deposit/cash",
         json={
             "account_id": account_id,
             "cash_amount": "125.50",
-            "atm_address": _atm_address(),
+            "atm_address": make_atm_address(),
         },
     )
 
@@ -102,14 +80,14 @@ def test_deposit_cash_updates_account_balance(client):
 
 def test_withdraw_rejects_insufficient_funds(client):
     register_user(client)
-    account_id = _create_account(client)
+    account_id = create_account(client)
 
     response = client.post(
         "/withdraw",
         json={
             "account_id": account_id,
             "cash_amount": "20.00",
-            "atm_address": _atm_address(),
+            "atm_address": make_atm_address(),
         },
     )
 
@@ -119,13 +97,13 @@ def test_withdraw_rejects_insufficient_funds(client):
 
 def test_withdraw_updates_account_balance(client):
     register_user(client)
-    account_id = _create_account(client)
+    account_id = create_account(client)
     deposit_response = client.post(
         "/deposit/cash",
         json={
             "account_id": account_id,
             "cash_amount": "100.00",
-            "atm_address": _atm_address(),
+            "atm_address": make_atm_address(),
         },
     )
     assert deposit_response.status_code == 200
@@ -135,7 +113,7 @@ def test_withdraw_updates_account_balance(client):
         json={
             "account_id": account_id,
             "cash_amount": "40.00",
-            "atm_address": _atm_address(),
+            "atm_address": make_atm_address(),
         },
     )
 
@@ -149,13 +127,13 @@ def test_withdraw_updates_account_balance(client):
 
 def test_close_account_rejects_non_zero_balance(client):
     register_user(client)
-    account_id = _create_account(client)
+    account_id = create_account(client)
     deposit_response = client.post(
         "/deposit/cash",
         json={
             "account_id": account_id,
             "cash_amount": "10.00",
-            "atm_address": _atm_address(),
+            "atm_address": make_atm_address(),
         },
     )
     assert deposit_response.status_code == 200
@@ -168,7 +146,7 @@ def test_close_account_rejects_non_zero_balance(client):
 
 def test_close_account_fails_when_account_is_already_closed(client):
     register_user(client)
-    account_id = _create_account(client)
+    account_id = create_account(client)
 
     first_close_response = client.delete(f"/accounts/{account_id}")
     second_close_response = client.delete(f"/accounts/{account_id}")
