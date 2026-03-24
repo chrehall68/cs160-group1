@@ -4,6 +4,7 @@ from typing_extensions import Annotated
 from sqlalchemy import Engine, create_engine
 from sqlmodel import SQLModel, Session
 from models import *
+from dependencies.auth import hash_password
 
 # connect to postgres database
 engine: Engine | None = None
@@ -51,12 +52,28 @@ def get_session():
         yield conn
 
 
+def create_admin_user():
+    # hardcoded admin user
+    for session in get_session():
+        if session.query(User).filter_by(username="admin", role=UserRole.ADMIN).first():
+            return
+        admin_user = User(
+            username="admin",
+            role=UserRole.ADMIN,
+            password_hash=hash_password("password"),
+            customer_id=None,
+        )
+        session.add(admin_user)
+        session.commit()
+
+
 def create_db_and_tables(database_url: str | None = None) -> Engine:
     global engine
     if engine is None or database_url is not None:
         engine = create_engine(database_url or build_database_url())
 
     SQLModel.metadata.create_all(engine)
+    create_admin_user()
     return engine
 
 
