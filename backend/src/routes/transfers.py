@@ -9,6 +9,7 @@ from dtos.transactions import (
     RecurringPaymentRequest,
 )
 from lib.transfers import process_transfer, TransferException
+from lib.users import get_associated_user
 from datetime import date
 
 router = APIRouter()
@@ -37,7 +38,8 @@ def transfer_money(
         )
 
     # check ownership
-    if from_account.customer_id != user_info.user_id:
+    user = get_associated_user(from_account.customer_id, session)
+    if not user or user.user_id != user_info.user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Account does not belong to user",
@@ -91,7 +93,8 @@ def create_recurring_payment(
         )
 
     # check ownership
-    if account.customer_id != user_info.user_id:
+    user = get_associated_user(account.customer_id, session)
+    if not user or user.user_id != user_info.user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Account does not belong to user",

@@ -2,7 +2,7 @@ import os
 from fastapi import Depends
 from typing_extensions import Annotated
 from sqlalchemy import Engine, create_engine
-from sqlmodel import SQLModel, Session
+from sqlmodel import SQLModel, Session, select
 from models import *
 from dependencies.auth import hash_password
 
@@ -54,8 +54,12 @@ def get_session():
 
 def create_admin_user():
     # hardcoded admin user
-    for session in get_session():
-        if session.query(User).filter_by(username="admin", role=UserRole.ADMIN).first():
+    with Session(engine) as session:
+        if session.exec(
+            select(User)
+            .where(User.username == "admin")
+            .where(User.role == UserRole.ADMIN)
+        ).first():
             return
         admin_user = User(
             username="admin",
