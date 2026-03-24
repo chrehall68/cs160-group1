@@ -9,13 +9,16 @@ from routes.accounts import router as accounts_router
 from routes.transfers import router as transfers_router
 from scheduler import scheduler
 from fastapi.middleware.cors import CORSMiddleware
+import logging
+
+logger = logging.getLogger("uvicorn.error")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     create_db_and_tables()
 
-    print("Starting APScheduler...")
+    logger.info("Starting APScheduler...")
     if not scheduler.running:
         scheduler.start()
 

@@ -1,5 +1,3 @@
-import sys
-import traceback
 from fastapi import APIRouter, HTTPException, status, Response, Request
 from sqlmodel import select
 from dependencies.db import SessionDep
@@ -12,6 +10,9 @@ from dependencies.auth import (
     create_access_token,
 )
 from datetime import datetime, timezone
+import logging
+
+logger = logging.getLogger("uvicorn.error")
 
 router = APIRouter()
 
@@ -71,9 +72,10 @@ def login(request: LoginRequest, session: SessionDep, response: Response):
     except HTTPException:
         raise
     except Exception as e:
+        logger.exception(e)
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred",
         )
 
 
@@ -168,7 +170,6 @@ def register(request: RegisterRequest, session: SessionDep, response: Response):
         )
         session.add(user)
         session.flush()
-        session.commit()  # commits to db
         session.refresh(user)  # that way we get the user id
         # ====== end of db operations ======
 
@@ -199,7 +200,7 @@ def register(request: RegisterRequest, session: SessionDep, response: Response):
         raise
     except Exception as e:
         session.rollback()
-        traceback.print_exc(file=sys.stderr)
+        logger.exception(e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred",
@@ -220,7 +221,6 @@ def delete_user(
     try:
         # check that the user is deleting their own account
         # or this is an admin
-        print(user_info, file=sys.stderr)
         if user_info.user_id != user_id and user_info.role != "admin":
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -265,7 +265,7 @@ def delete_user(
         raise
     except Exception as e:
         session.rollback()
-        traceback.print_exc(file=sys.stderr)
+        logger.exception(e)
 
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -294,7 +294,7 @@ def logout(request_obj: Request, response: Response):
     except HTTPException:
         raise
     except Exception as e:
-        traceback.print_exc(file=sys.stderr)
+        logger.exception(e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred",

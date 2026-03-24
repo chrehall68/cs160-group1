@@ -1,7 +1,5 @@
 from fastapi import APIRouter, HTTPException, status
 from sqlmodel import select, func
-import sys
-import traceback
 
 from dependencies.db import SessionDep
 from dependencies.auth import AuthDep
@@ -10,9 +8,10 @@ from models import (
     Transaction,
     LedgerEntry,
 )
-from dtos.transactions import (
-    TransactionResponse,
-)
+from dtos.transactions import TransactionResponse
+import logging
+
+logger = logging.getLogger("uvicorn.error")
 
 router = APIRouter()
 
@@ -93,7 +92,7 @@ def get_account_transactions(
 
     except Exception as e:
         session.rollback()
-        traceback.print_exception(e, file=sys.stderr)
+        logger.exception(e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get transactions",

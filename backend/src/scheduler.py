@@ -4,14 +4,13 @@ from sqlmodel import select
 from dependencies.db import get_session
 from models import RecurringPayment
 from lib.transfers import process_recurring_payment
-import sys
-import traceback
+import logging
 
-print("Recurring payment scheduler initialized")
+logger = logging.getLogger("uvicorn.error")
 
 
 def process_recurring_payments():
-    print("Scheduler checking recurring payments...", file=sys.stderr)
+    logger.info("Scheduler checking recurring payments...")
     for session in get_session():
         payments = session.exec(
             select(RecurringPayment).where(
@@ -22,15 +21,14 @@ def process_recurring_payments():
 
         for payment in payments:
             try:
-                print(
+                logger.info(
                     "Executing recurring payment:",
                     payment.recurring_payment_id,
-                    file=sys.stderr,
                 )
                 process_recurring_payment(payment, session)
 
             except Exception as e:
-                traceback.print_exception(e, file=sys.stderr)
+                logger.exception(e)
         session.commit()
 
 
