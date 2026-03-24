@@ -45,3 +45,33 @@ def make_atm_address() -> dict:
         "zipcode": "92101",
         "country": "USA",
     }
+
+
+def deposit_cash(client, account_id: int, amount: str):
+    response = client.post(
+        "/deposit/cash",
+        json={
+            "account_id": account_id,
+            "cash_amount": amount,
+            "atm_address": make_atm_address(),
+        },
+    )
+    assert response.status_code == 200
+
+
+def withdraw_cash(client, account_id: int, amount: str):
+    response = client.post(
+        "/withdraw",
+        json={
+            "account_id": account_id,
+            "cash_amount": amount,
+            "atm_address": make_atm_address(),
+        },
+    )
+    assert response.status_code == 200
+
+
+def get_account(client, account_id: int):
+    response = client.get(f"/accounts/{account_id}")
+    assert response.status_code == 200
+    return response.json()

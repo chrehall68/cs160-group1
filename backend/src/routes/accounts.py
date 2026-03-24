@@ -1,5 +1,3 @@
-import sys
-import traceback
 import random
 from fastapi import APIRouter, HTTPException, status
 from sqlmodel import select
@@ -25,6 +23,9 @@ from models import (
 )
 from dtos.accounts import CreateAccountRequest, CashDepositRequest, WithdrawRequest
 from decimal import Decimal
+import logging
+
+logger = logging.getLogger("uvicorn.error")
 
 router = APIRouter()
 
@@ -91,7 +92,7 @@ def create_account(
         raise
     except Exception as e:
         session.rollback()
-        traceback.print_exc(file=sys.stderr)
+        logger.exception(e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred",
@@ -152,7 +153,7 @@ def close_account(
         raise
     except Exception as e:
         session.rollback()
-        traceback.print_exc(file=sys.stderr)
+        logger.exception(e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred",
@@ -192,7 +193,7 @@ def get_account(
     except HTTPException:
         raise
     except Exception as e:
-        traceback.print_exc(file=sys.stderr)
+        logger.exception(e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred",
@@ -227,7 +228,7 @@ def get_all_accounts(
     except HTTPException:
         raise
     except Exception as e:
-        traceback.print_exc(file=sys.stderr)
+        logger.exception(e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred",
@@ -315,7 +316,7 @@ def deposit_cash(
         raise
     except Exception as e:
         session.rollback()
-        traceback.print_exc(file=sys.stderr)
+        logger.exception(e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred",
@@ -407,7 +408,7 @@ def withdraw(
         raise
     except Exception as e:
         session.rollback()
-        traceback.print_exc(file=sys.stderr)
+        logger.exception(e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred",

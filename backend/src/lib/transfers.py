@@ -1,8 +1,23 @@
-from models import *
-from sqlmodel import Session, select
-from datetime import timedelta
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
+from decimal import Decimal
+
+from sqlmodel import Session, select
+
 from constants import ROUTING_NUMBER
+from models import (
+    Account,
+    AccountStatus,
+    LedgerEntry,
+    LedgerType,
+    RecurringFrequency,
+    RecurringPayment,
+    Transaction,
+    TransactionStatus,
+    TransactionType,
+    Transfer,
+    TransferDirection,
+)
 
 DELTAS = {
     RecurringFrequency.WEEKLY: timedelta(days=7),
@@ -18,19 +33,13 @@ class TransferException(Exception):
 
 def process_recurring_payment(payment: RecurringPayment, session: Session):
     """
-    Process the recurring payment, adding the necessary
-    records to the transaction, transfer, and ledger tables
+    Process a stored recurring payment and persist the resulting records.
 
-    This function will commit results to the database if successful.
-
-    On failure, this function will rollback and then throw a TransferException
-    with the reason.
+    TODO - it would be nice to store the success / failure message
+    and maybe limit the amount of retries we do on a failing payment
     """
 
-    # TODO - it would be nice to store the success / failure message
-    # and maybe limit the amount of retries we do on a failing payment
-
-    # first, treat it like a regular transfer
+    # recurring payment is just a regular transfer
     process_transfer(
         payment.from_account_id,
         payment.payee_account_number,
@@ -38,7 +47,7 @@ def process_recurring_payment(payment: RecurringPayment, session: Session):
         payment.amount,
         "Recurring Payment",
         session,
-        False,
+        commit=False,
     )
 
     # then, update next payment date
@@ -47,7 +56,7 @@ def process_recurring_payment(payment: RecurringPayment, session: Session):
             payment.next_payment_date + DELTAS[payment.frequency]
         )
     else:
-        # it was a one time thing. remove it from the db
+        # it was a one time thing, remove it from the db
         session.delete(payment)
     session.commit()
 
@@ -62,13 +71,16 @@ def process_transfer(
     commit: bool = True,
 ):
     """
-    Process the transfer, adding the necessary
-    records to the transaction, transfer, and ledger tables
+    Process a transfer from an internal account
+    to either an external account or an internal account,
+    as determined by the routing number.
 
     This function will commit results to the database if successful and commit is True.
 
     On failure, this function will rollback and then throw a TransferException
     with the reason.
+
+    This function will create the transaction, transfer, and ledger records.
     """
 
     account = session.get(Account, from_account_id)
@@ -76,12 +88,25 @@ def process_transfer(
     if not account:
         raise TransferException("Account does not exist")
 
+    if account.status is not AccountStatus.ACTIVE:
+        raise TransferException("Account is not active")
+
+    if amount < 0:
+        raise TransferException(
+            "Invalid amount. Only nonnegative amounts can be transferred"
+        )
+
+    if (
+        payee_routing_number == ROUTING_NUMBER
+        and payee_account_number == account.account_number
+    ):
+        raise TransferException("Cannot transfer to the same account")
+
     if account.balance < amount:
         raise TransferException("Insufficient funds for payment")
-    # subtract balance
+
     account.balance -= amount
 
-    # create transaction
     transaction = Transaction(
         account_id=from_account_id,
         transaction_type=TransactionType.TRANSFER,
@@ -95,20 +120,21 @@ def process_transfer(
     session.add(transaction)
     session.flush()
 
-    # create transfer record
-    assert transaction.transaction_id
-    transfer = Transfer(
-        transaction_id=transaction.transaction_id,
-        direction=TransferDirection.OUTGOING,
+    # create records
+    assert transaction.transaction_id is not None
+    session.add(
+        Transfer(
+            transaction_id=transaction.transaction_id,
+            direction=TransferDirection.OUTGOING,
+        )
     )
-    session.add(transfer)
-    # and create ledger entry
-    ledger1 = LedgerEntry(
-        transaction_id=transaction.transaction_id,
-        account_id=from_account_id,
-        type=LedgerType.DEBIT,
+    session.add(
+        LedgerEntry(
+            transaction_id=transaction.transaction_id,
+            account_id=from_account_id,
+            type=LedgerType.DEBIT,
+        )
     )
-    session.add(ledger1)
 
     # handle the other side too
     if payee_routing_number == ROUTING_NUMBER:
@@ -118,24 +144,24 @@ def process_transfer(
         if payee is None:
             session.rollback()
             raise TransferException("Payee account number not found")
-        if payee.status == AccountStatus.CLOSED:
+        if payee.status is not AccountStatus.ACTIVE:
             session.rollback()
-            raise TransferException("Payee account is closed")
-        assert payee.account_id
-        # transfer to payee
+            raise TransferException("Payee account is not active")
+        assert payee.account_id is not None
         payee.balance += amount
-        # and create records
-        transfer = Transfer(
-            transaction_id=transaction.transaction_id,
-            direction=TransferDirection.INCOMING,
+        session.add(
+            Transfer(
+                transaction_id=transaction.transaction_id,
+                direction=TransferDirection.INCOMING,
+            )
         )
-        session.add(transfer)
-        ledger2 = LedgerEntry(
-            transaction_id=transaction.transaction_id,
-            account_id=payee.account_id,
-            type=LedgerType.CREDIT,
+        session.add(
+            LedgerEntry(
+                transaction_id=transaction.transaction_id,
+                account_id=payee.account_id,
+                type=LedgerType.CREDIT,
+            )
         )
-        session.add(ledger2)
 
     # commit changes, if requested
     if commit:

@@ -1,7 +1,9 @@
-from pydantic import BaseModel, field_validator
 from datetime import date, datetime
 from decimal import Decimal
-from models import RecurringFrequency, LedgerType
+
+from pydantic import BaseModel, field_validator
+
+from models import LedgerType, RecurringFrequency
 
 
 class InternalTransferRequest(BaseModel):
@@ -9,18 +11,13 @@ class InternalTransferRequest(BaseModel):
     to_account_number: str
     to_routing_number: str
     amount: Decimal
-    # removed scheduled date because the UI will use
-    # recurring payments for that
 
     @field_validator("amount")
     @classmethod
     def validate_amount(cls, v: Decimal):
-        if v <= 0:
-            raise ValueError("Amount must be positive")
+        if v < 0:
+            raise ValueError("Amount must be nonnegative")
         return v
-
-    # TODO - enforce that if transfer type is internal,
-    # the routing number is Online Bank's routing number
 
 
 class RecurringPaymentRequest(BaseModel):
@@ -30,6 +27,13 @@ class RecurringPaymentRequest(BaseModel):
     amount: Decimal
     frequency: RecurringFrequency
     next_payment_date: date
+
+    @field_validator("amount")
+    @classmethod
+    def validate_amount(cls, v: Decimal):
+        if v < 0:
+            raise ValueError("Amount must be nonnegative")
+        return v
 
 
 class TransactionResponse(BaseModel):
