@@ -3,12 +3,9 @@ from sqlmodel import select, func
 
 from dependencies.db import SessionDep
 from dependencies.auth import AuthDep
-from models import (
-    Account,
-    Transaction,
-    LedgerEntry,
-)
+from models import Account, Transaction, LedgerEntry
 from dtos.transactions import TransactionResponse
+from lib.users import get_associated_user
 import logging
 
 logger = logging.getLogger("uvicorn.error")
@@ -50,7 +47,9 @@ def get_account_transactions(
             detail="Account not found",
         )
 
-    if account.customer_id != user_info.user_id:
+    # verify account belongs to user
+    user = get_associated_user(account.customer_id, session)
+    if not user or user.user_id != user_info.user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Account does not belong to user",
