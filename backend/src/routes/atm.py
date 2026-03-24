@@ -30,8 +30,7 @@ async def geocode(address: str = Query(...)):
     return res.json()
 
 
-@router.get("/atm/nearby")
-async def nearby_atms(lat: float, lng: float, radius: int = 5000):
+async def helper(lat: float, lng: float, radius: int):
     async with httpx.AsyncClient() as client:
         # First try with requested radius
         res = await client.get(
@@ -89,7 +88,12 @@ async def nearby_atms(lat: float, lng: float, radius: int = 5000):
 
         # If no Chase results, retry with 20km radius
         if not chase_results and radius < 20000:
-            return nearby_atms(lat, lng, 20000)
-        data = {"results": chase_results}
+            return await helper(lat, lng, 20000)
+        return chase_results
+
+
+@router.get("/atm/nearby")
+async def nearby_atms(lat: float, lng: float, radius: int = 5000):
+    data = {"results": await helper(lat, lng, radius)}
 
     return data

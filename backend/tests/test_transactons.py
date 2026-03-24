@@ -1,30 +1,6 @@
 from fastapi.testclient import TestClient
 
-from tests.shared import create_account, make_atm_address, register_user
-
-
-def _deposit_cash(client, account_id: int, amount: str):
-    response = client.post(
-        "/deposit/cash",
-        json={
-            "account_id": account_id,
-            "cash_amount": amount,
-            "atm_address": make_atm_address(),
-        },
-    )
-    assert response.status_code == 200
-
-
-def _withdraw_cash(client, account_id: int, amount: str):
-    response = client.post(
-        "/withdraw",
-        json={
-            "account_id": account_id,
-            "cash_amount": amount,
-            "atm_address": make_atm_address(),
-        },
-    )
-    assert response.status_code == 200
+from tests.shared import create_account, register_user, withdraw_cash, deposit_cash
 
 
 def test_get_account_transactions_returns_empty_history_for_new_account(client):
@@ -41,9 +17,9 @@ def test_get_account_transactions_returns_most_recent_first_with_pagination(clie
     register_user(client)
     account_id = create_account(client)
 
-    _deposit_cash(client, account_id, "100.00")
-    _withdraw_cash(client, account_id, "30.00")
-    _deposit_cash(client, account_id, "5.00")
+    deposit_cash(client, account_id, "100.00")
+    withdraw_cash(client, account_id, "30.00")
+    deposit_cash(client, account_id, "5.00")
 
     first_page = client.get(
         f"/transactions/{account_id}", params={"page": 1, "limit": 2}
@@ -96,7 +72,7 @@ def test_get_account_transactions_rejects_other_users_account(client):
     with TestClient(client.app, base_url="https://testserver") as owner_client:
         register_user(owner_client)
         account_id = create_account(owner_client)
-        _deposit_cash(owner_client, account_id, "50.00")
+        deposit_cash(owner_client, account_id, "50.00")
 
     with TestClient(client.app, base_url="https://testserver") as other_client:
         register_user(other_client)

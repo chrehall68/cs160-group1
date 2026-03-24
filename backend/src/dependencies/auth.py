@@ -127,9 +127,6 @@ def get_user_info(request: Request) -> UserInfo:
     """
     token = get_token_from_request(request)
     data = verify_token(token)
-    import sys
-
-    print(data, file=sys.stderr)
     return data
 
 
