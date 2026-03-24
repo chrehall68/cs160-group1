@@ -170,6 +170,7 @@ def register(request: RegisterRequest, session: SessionDep, response: Response):
         )
         session.add(user)
         session.flush()
+        session.commit()
         session.refresh(user)  # that way we get the user id
         # ====== end of db operations ======
 
