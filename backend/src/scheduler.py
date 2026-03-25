@@ -1,7 +1,7 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import date
-from sqlmodel import select
-from dependencies.db import get_session
+from sqlmodel import select, Session
+from dependencies.db import get_engine
 from models import RecurringPayment
 from lib.transfers import process_recurring_payment
 import logging
@@ -11,7 +11,8 @@ logger = logging.getLogger("uvicorn.error")
 
 def process_recurring_payments():
     logger.info("Scheduler checking recurring payments...")
-    for session in get_session():
+
+    with Session(get_engine()) as session:
         payments = session.exec(
             select(RecurringPayment).where(
                 RecurringPayment.next_payment_date <= date.today(),

@@ -1,6 +1,6 @@
 import random
 from fastapi import APIRouter, HTTPException, status
-from sqlmodel import select
+from sqlmodel import select, Session
 from dependencies.db import SessionDep
 from dependencies.auth import AuthDep
 from constants import ROUTING_NUMBER
@@ -9,7 +9,6 @@ from models import (
     AccountType,
     AccountStatus,
     ATM,
-    Address,
     ATMStatus,
     Transaction,
     TransactionType,
@@ -21,6 +20,7 @@ from models import (
     DepositType,
     User,
 )
+from lib.users import get_or_create_address
 from dtos.accounts import CreateAccountRequest, CashDepositRequest, WithdrawRequest
 from decimal import Decimal
 import logging
@@ -30,19 +30,26 @@ logger = logging.getLogger("uvicorn.error")
 router = APIRouter()
 
 
-def get_or_create_atm(session, atm_address) -> ATM:
+def get_or_create_atm(session: Session, atm_address) -> ATM:
     """Helper to find or create an ATM record from an address."""
-    address = Address(
+    address = get_or_create_address(
         street=atm_address.street,
         unit=atm_address.unit,
         city=atm_address.city,
         state=atm_address.state,
-        zip_code=atm_address.zipcode,
+        zipcode=atm_address.zipcode,
         country=atm_address.country,
+        session=session,
     )
-    session.add(address)
-    session.flush()
 
+    stmt = select(ATM).where(ATM.address_id == address.address_id)
+    atm = session.exec(stmt).first()
+    # activate the atm if it's not active
+    if atm and atm.status != ATMStatus.ACTIVE:
+        atm.status = ATMStatus.ACTIVE
+        session.flush()
+    if atm:
+        return atm
     atm = ATM(address_id=address.address_id, status=ATMStatus.ACTIVE)
     session.add(atm)
     session.flush()

@@ -52,6 +52,14 @@ def get_session():
         yield conn
 
 
+def get_engine():
+    # for use outside of dependencies
+    assert (
+        engine is not None
+    ), "Database engine is not initialized. Call create_db_and_tables() first."
+    return engine
+
+
 def create_admin_user():
     # hardcoded admin user
     with Session(engine) as session:

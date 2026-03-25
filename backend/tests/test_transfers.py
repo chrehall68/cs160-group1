@@ -1,9 +1,9 @@
 from datetime import date, timedelta
 
 from fastapi.testclient import TestClient
-from sqlmodel import select
+from sqlmodel import select, Session
 
-from dependencies.db import get_session
+from dependencies.db import get_engine
 from models import RecurringPayment
 from tests.shared import create_account, deposit_cash, get_account, register_user
 
@@ -215,7 +215,7 @@ def test_create_recurring_payment_succeeds_for_owned_active_account(client):
     assert response.status_code == 200
     assert response.json() == {"message": "Recurring payment scheduled"}
 
-    for session in get_session():
+    with Session(get_engine()) as session:
         recurring = session.exec(
             select(RecurringPayment).where(
                 RecurringPayment.from_account_id == account_id
