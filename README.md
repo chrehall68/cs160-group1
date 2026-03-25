@@ -54,13 +54,16 @@ Then:
 
 To run the web client, backend, and database together in development mode:
 
-First, make sure you create a `.env` file with your Google API key.
+First, make sure you create a `.env` file with your Google API key,
+Plaid Client ID, and Plaid (Sandbox) Secret.
 
 Example:
 
 ```
 # (.env file)
 GOOGLE_API_KEY=<YOUR_GOOGLE_API_KEY>
+PLAID_CLIENT_ID=<YOUR_PLAID_CLIENT_ID>
+PLAID_SECRET=<YOUR_PLAID_SECRET>
 ```
 
 Then, you can run:
