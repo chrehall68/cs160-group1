@@ -4,7 +4,7 @@ import { fetchAccounts, queryKeys } from '#/lib/queries'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import clsx from 'clsx'
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import type { PlaidLinkOnSuccess, PlaidLinkOptions } from 'react-plaid-link'
 import { usePlaidLink } from 'react-plaid-link'
 import { isAuthenticated } from '../lib/auth'
@@ -222,34 +222,21 @@ function InternalTransfer() {
   )
 }
 
-function Linker({ token }: { token: string }) {
-  const onSuccess: PlaidLinkOnSuccess = (publicToken, metadata) => {
-    console.log('publicToken', publicToken)
-    console.log('metadata', metadata)
-  }
-
-  const plaidConfig: PlaidLinkOptions = {
-    onSuccess,
-    onExit: () => {
-      console.log('exit')
-    },
-    token,
-  }
-
-  const { open, exit, ready } = usePlaidLink(plaidConfig)
-  useEffect(() => {
-    if (ready) {
-      open()
-    }
-  })
-
-  return <></>
+type InitiatedExternalTransferResponse = {
+  link_token: string
+  transfer_intent_id: string
 }
 function ExternalTransfer() {
-  const [linkToken, setLinkToken] = useState<string | null>(null)
+  // state
+  const [response, setResponse] =
+    useState<InitiatedExternalTransferResponse | null>(null)
+  const [loading, setLoading] = useState(false)
   const [amount, setAmount] = useState('')
   const [selectedAccountId, setSelectedAccountId] = useState('')
-  const queryClient = useQueryClient()
+  // display state
+  const [formError, setFormError] = useState('')
+  const [success, setSuccess] = useState('')
+  // queries
   const accountsQuery = useQuery({
     queryKey: queryKeys.accounts,
     queryFn: fetchAccounts,
@@ -260,10 +247,68 @@ function ExternalTransfer() {
     }
   }, [accountsQuery.data, selectedAccountId])
 
-  console.log('linkToken', linkToken)
+  const onSuccess: PlaidLinkOnSuccess = async (publicToken, metadata) => {
+    console.log('publicToken', publicToken)
+    console.log('metadata', metadata)
+
+    console.log('response', response)
+    try {
+      const data: any = await apiRequest('/api/transfer/external/complete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          transfer_intent_id: response?.transfer_intent_id,
+        }),
+      })
+
+      setSuccess(data.message)
+      // clear form data
+      setAmount('')
+    } catch (error) {
+      setFormError(getErrorMessage(error, 'Error completing transfer'))
+    }
+
+    setResponse(null)
+  }
+
+  const plaidConfig: PlaidLinkOptions = {
+    onSuccess,
+    onExit: () => {
+      console.log('exit')
+    },
+    token: response?.link_token || '',
+  }
+
+  const { open, exit, ready } = usePlaidLink(plaidConfig)
+  if (response?.link_token) {
+    open()
+  }
+
+  const initiateTransfer = async (e: React.SubmitEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setLoading(true)
+    if (!response && selectedAccountId && amount) {
+      const data: any = await apiRequest('/api/transfer/external/initiate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          amount,
+          account_id: Number(selectedAccountId),
+        }),
+      })
+      setResponse(data)
+    }
+    setLoading(false)
+  }
+
+  console.log('response', response)
 
   return (
-    <div className="flex flex-col space-y-4">
+    <form className="flex flex-col space-y-4" onSubmit={initiateTransfer}>
       <h3 className="text-xl font-bold">External Transfer</h3>
       <p>Transfer from an external account</p>
 
@@ -290,27 +335,17 @@ function ExternalTransfer() {
         <DecimalInput val={amount} setVal={setAmount} required />
       </div>
 
+      {formError && <p className="text-sm text-red-600">{formError}</p>}
+      {success && <p className="text-sm text-green-600">{success}</p>}
+
       <button
         className="w-full rounded bg-(--lagoon) px-4 py-2 font-semibold text-white hover:bg-[var(--lagoon-deep)]"
-        onClick={async () => {
-          const data: any = await apiRequest('/api/external/initiate', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              amount,
-              account_id: Number(selectedAccountId),
-            }),
-          })
-          setLinkToken(data.link_token)
-        }}
+        type="submit"
+        disabled={loading}
       >
         Begin External Transfer
       </button>
-
-      <Linker token={linkToken || ''} />
-    </div>
+    </form>
   )
 }
 function Transfer() {

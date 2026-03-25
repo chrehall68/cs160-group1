@@ -3,10 +3,24 @@ from sqlmodel import select
 
 from dependencies.db import SessionDep
 from dependencies.auth import AuthDep
-from models import Account, RecurringPayment, AccountStatus, User
+from models import (
+    Account,
+    RecurringPayment,
+    AccountStatus,
+    User,
+    PotentialExternalTransfer,
+    Transaction,
+    TransactionType,
+    TransactionStatus,
+    Transfer,
+    TransferDirection,
+    LedgerEntry,
+    LedgerType,
+)
 from dtos.transactions import (
     InternalTransferRequest,
-    ExternalTransferRequest,
+    ExternalTransferInitiateRequest,
+    ExternalTransferCompleteRequest,
     RecurringPaymentRequest,
 )
 from lib.transfers import process_transfer, TransferException
@@ -157,9 +171,9 @@ def create_recurring_payment(
         )
 
 
-@router.post("/external/initiate")
-def transfer_external(
-    request: ExternalTransferRequest, session: SessionDep, user_info: AuthDep
+@router.post("/transfer/external/initiate")
+def initiate_external_transfer(
+    request: ExternalTransferInitiateRequest, session: SessionDep, user_info: AuthDep
 ):
     try:
         account = session.get(Account, request.account_id)
@@ -211,8 +225,91 @@ def transfer_external(
             )
         )
         logger.info(link_res)
+        session.add(
+            PotentialExternalTransfer(
+                account_id=request.account_id,
+                amount=request.amount,
+                transfer_intent_id=transfer_intent["transfer_intent"]["id"],
+            )
+        )
+        session.commit()
 
-        return {"link_token": link_res["link_token"]}
+        return {
+            "link_token": link_res["link_token"],
+            "transfer_intent_id": transfer_intent["transfer_intent"]["id"],
+        }
+    except Exception as e:
+        session.rollback()
+        logger.exception(e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Transfer failed",
+        )
+
+
+@router.post("/transfer/external/complete")
+def complete_external_transfer(
+    request: ExternalTransferCompleteRequest, session: SessionDep, user_info: AuthDep
+):
+    try:
+        stmt = select(PotentialExternalTransfer).where(
+            PotentialExternalTransfer.transfer_intent_id == request.transfer_intent_id
+        )
+        potential_transfer = session.exec(stmt).first()
+        if not potential_transfer:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid transfer intent id",
+            )
+        account = session.get(Account, potential_transfer.account_id)
+        if not account:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Account not found",
+            )
+        user = session.get(User, user_info.user_id)
+        if not user or account.customer_id != user.customer_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Account does not belong to user",
+            )
+
+        # and add transaction
+        account.balance += potential_transfer.amount
+        assert account.account_id
+        transaction = Transaction(
+            account_id=account.account_id,
+            amount=potential_transfer.amount,
+            transaction_type=TransactionType.TRANSFER,
+            status=TransactionStatus.COMPLETED,
+            description="External transfer",
+        )
+        session.add(transaction)
+        session.flush()
+        # and add transfer
+        assert transaction.transaction_id
+        session.add(
+            Transfer(
+                transaction_id=transaction.transaction_id,
+                direction=TransferDirection.INCOMING,
+            )
+        )
+        session.add(
+            LedgerEntry(
+                transaction_id=transaction.transaction_id,
+                account_id=account.account_id,
+                type=LedgerType.CREDIT,
+            )
+        )
+        # mark the transfer as done
+        session.delete(potential_transfer)
+        session.commit()
+        # TODO - technically we should use webhooks and not just assume
+        # that the transfer worked
+        # but this is also just CS 160...
+
+        return {"message": "External transfer completed successfully"}
+
     except Exception as e:
         session.rollback()
         logger.exception(e)

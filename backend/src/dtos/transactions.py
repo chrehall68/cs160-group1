@@ -20,7 +20,7 @@ class InternalTransferRequest(BaseModel):
         return v
 
 
-class ExternalTransferRequest(BaseModel):
+class ExternalTransferInitiateRequest(BaseModel):
     account_id: int
     amount: Decimal
 
@@ -30,6 +30,10 @@ class ExternalTransferRequest(BaseModel):
         if v < 0:
             raise ValueError("Amount must be nonnegative")
         return v
+
+
+class ExternalTransferCompleteRequest(BaseModel):
+    transfer_intent_id: str
 
 
 class RecurringPaymentRequest(BaseModel):

@@ -404,6 +404,26 @@ class OnlineDeposit(SQLModel, table=True):
     check_image_path: str = Field(max_length=512, unique=True)
 
 
+class PotentialExternalTransfer(SQLModel, table=True):
+    # pk
+    potential_external_transfer_id: Optional[int] = Field(
+        default=None,
+        primary_key=True,
+        sa_type=BigInteger,
+    )
+    transfer_intent_id: str = Field(max_length=64, unique=True)
+    account_id: int = Field(
+        foreign_key="account.account_id",
+        nullable=False,
+        sa_type=BigInteger,
+        ondelete="CASCADE",
+    )
+    account: Account = Relationship()
+    amount: Decimal = Field(gt=0.0, decimal_places=2, max_digits=18)
+    currency: str = Field(default="USD", max_length=3)
+    created_at: datetime = Field(default_factory=utcnow)
+
+
 # audit log
 class AuditLog(SQLModel, table=True):
     # pk
