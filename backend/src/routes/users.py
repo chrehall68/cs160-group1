@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, status, Response, Request
 from sqlmodel import select
 from dependencies.db import SessionDep
-from models import User, Customer, Address, Account, AccountStatus
+from models import User, Customer, Account, AccountStatus
 from dtos.users import LoginRequest, RegisterRequest
 from dependencies.auth import (
     AuthDep,
@@ -10,6 +10,7 @@ from dependencies.auth import (
     create_access_token,
 )
 from datetime import datetime, timezone
+from lib.utils import get_or_create_address
 import logging
 
 logger = logging.getLogger("uvicorn.error")
@@ -129,24 +130,31 @@ def register(request: RegisterRequest, session: SessionDep, response: Response):
         # Check if username already exists
         statement = select(User).where(User.username == request.username)
         existing_user = session.exec(statement).first()
-
         if existing_user:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Username already exists",
             )
 
+        # Check if SSN already exists
+        customer_check = select(Customer).where(Customer.ssn == request.ssn)
+        existing_customer = session.exec(customer_check).first()
+        if existing_customer:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="SSN already exists",
+            )
+
         # Create address
-        address = Address(
+        address = get_or_create_address(
             street=request.address.street,
-            unit=request.address.unit,
             city=request.address.city,
             state=request.address.state,
-            zip_code=request.address.zipcode,
+            zipcode=request.address.zipcode,
             country=request.address.country,
+            unit=request.address.unit,
+            session=session,
         )
-        session.add(address)
-        session.flush()
 
         # Create customer
         customer = Customer(
@@ -175,6 +183,7 @@ def register(request: RegisterRequest, session: SessionDep, response: Response):
         # ====== end of db operations ======
 
         if user.user_id is None:
+            session.rollback()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to insert user",

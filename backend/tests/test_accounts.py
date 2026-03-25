@@ -1,4 +1,7 @@
 from fastapi.testclient import TestClient
+from sqlmodel import Session, func, select
+from models import ATM
+from dependencies.db import get_engine
 
 from tests.shared import create_account, make_atm_address, register_user
 
@@ -155,3 +158,32 @@ def test_close_account_fails_when_account_is_already_closed(client):
     assert first_close_response.json() == {}
     assert second_close_response.status_code == 400
     assert second_close_response.json() == {"detail": "Account is already closed"}
+
+
+def test_no_duplicate_atms_created(client):
+    register_user(client)
+    account_id = create_account(client)
+
+    first_deposit_response = client.post(
+        "/deposit/cash",
+        json={
+            "account_id": account_id,
+            "cash_amount": "10.00",
+            "atm_address": make_atm_address(),
+        },
+    )
+    second_deposit_response = client.post(
+        "/deposit/cash",
+        json={
+            "account_id": account_id,
+            "cash_amount": "10.00",
+            "atm_address": make_atm_address(),
+        },
+    )
+    assert first_deposit_response.status_code == 200
+    assert second_deposit_response.status_code == 200
+
+    with Session(get_engine()) as session:
+        count = session.exec(select(func.count()).select_from(ATM)).one()
+
+    assert count == 1

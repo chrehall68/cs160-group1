@@ -12,7 +12,7 @@ import { isAuthenticated, setAuthSession } from '../lib/auth'
 export const Route = createFileRoute('/signup')({
   beforeLoad: () => {
     if (isAuthenticated()) {
-      throw redirect({ to: '/dashboard' })
+      throw redirect({ to: '/accounts' })
     }
   },
   component: SignUp,
@@ -78,7 +78,7 @@ function SignUp() {
 
       queryClient.clear()
       setAuthSession(data.access_token, data.role, data.user_id)
-      router.navigate({ to: '/dashboard' })
+      router.navigate({ to: '/accounts' })
     },
   })
 

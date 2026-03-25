@@ -143,7 +143,7 @@ class Customer(SQLModel, table=True):
         nullable=True,
     )
     address: "Address" = Relationship()
-    ssn: str = Field(max_length=9)
+    ssn: str = Field(max_length=9, unique=True)
     kyc_status: KYCStatus = Field(default=KYCStatus.PENDING, max_length=10)
 
 

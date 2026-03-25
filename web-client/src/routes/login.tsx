@@ -12,7 +12,7 @@ import { isAuthenticated, setAuthSession } from '../lib/auth'
 export const Route = createFileRoute('/login')({
   beforeLoad: () => {
     if (isAuthenticated()) {
-      throw redirect({ to: '/dashboard' })
+      throw redirect({ to: '/accounts' })
     }
   },
   component: Login,
@@ -43,7 +43,7 @@ function Login() {
 
       queryClient.clear()
       setAuthSession(data.access_token, data.role, data.user_id)
-      router.navigate({ to: '/dashboard' })
+      router.navigate({ to: '/accounts' })
     },
   })
 
@@ -57,7 +57,10 @@ function Login() {
 
   const error =
     loginMutation.isError &&
-    getErrorMessage(loginMutation.error, 'Unable to sign in right now. Please try again.')
+    getErrorMessage(
+      loginMutation.error,
+      'Unable to sign in right now. Please try again.',
+    )
   const isSubmitting = loginMutation.isPending
 
   return (

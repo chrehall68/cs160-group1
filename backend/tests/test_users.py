@@ -1,6 +1,9 @@
 from datetime import date
 from fastapi.testclient import TestClient
 from tests.shared import make_register_payload
+from sqlmodel import func, select, Session
+from models import Address
+from dependencies.db import get_engine
 
 
 def test_register_creates_user_and_sets_cookie(client):
@@ -19,11 +22,37 @@ def test_register_rejects_duplicate_username(client):
     payload = make_register_payload(username="duplicate_user")
 
     first_response = client.post("/user", json=payload)
-    second_response = client.post("/user", json={**payload, "email": "new@example.com"})
+    second_response = client.post("/user", json=payload)
 
     assert first_response.status_code == 200
     assert second_response.status_code == 400
     assert second_response.json() == {"detail": "Username already exists"}
+
+
+def test_register_rejects_duplicate_customer(client):
+    payload = make_register_payload(username="duplicate_user")
+
+    first_response = client.post("/user", json=payload)
+    second_response = client.post("/user", json={**payload, "username": "new_username"})
+
+    assert first_response.status_code == 200
+    assert second_response.status_code == 400
+    assert second_response.json() == {"detail": "SSN already exists"}
+
+
+def test_addresses_are_not_duplicated(client):
+    payload = make_register_payload()
+    first_response = client.post("/user", json=payload)
+    second_response = client.post(
+        "/user", json={**payload, "username": "new_username", "ssn": "123456780"}
+    )
+
+    assert first_response.status_code == 200
+    assert second_response.status_code == 200
+    with Session(get_engine()) as session:
+        stmt = select(func.count()).select_from(Address)
+        val = session.exec(stmt).one()
+        assert val == 1
 
 
 def test_register_rejects_user_younger_than_18(client):
