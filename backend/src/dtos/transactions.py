@@ -20,6 +20,18 @@ class InternalTransferRequest(BaseModel):
         return v
 
 
+class ExternalTransferRequest(BaseModel):
+    account_id: int
+    amount: Decimal
+
+    @field_validator("amount")
+    @classmethod
+    def validate_amount(cls, v: Decimal):
+        if v < 0:
+            raise ValueError("Amount must be nonnegative")
+        return v
+
+
 class RecurringPaymentRequest(BaseModel):
     from_account_id: int
     payee_account_number: str

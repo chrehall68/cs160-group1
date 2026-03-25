@@ -6,12 +6,41 @@ from dependencies.auth import AuthDep
 from models import Account, RecurringPayment, AccountStatus, User
 from dtos.transactions import (
     InternalTransferRequest,
+    ExternalTransferRequest,
     RecurringPaymentRequest,
 )
 from lib.transfers import process_transfer, TransferException
 from datetime import date
 
+# for external transfers
+import plaid
+from plaid.model.transfer_intent_create_request import TransferIntentCreateRequest
+from plaid.model.transfer_intent_create_mode import TransferIntentCreateMode
+from plaid.model.link_token_create_request import LinkTokenCreateRequest
+from plaid.model.ach_class import ACHClass
+from plaid.model.country_code import CountryCode
+from plaid.model.products import Products
+from plaid.api import plaid_api
+import os
+import logging
+
+logger = logging.getLogger("uvicorn.error")
+
 router = APIRouter()
+
+# Available environments are
+# 'Production'
+# 'Sandbox'
+configuration = plaid.Configuration(
+    host=plaid.Environment.Sandbox,
+    api_key={
+        "clientId": os.getenv("PLAID_CLIENT_ID"),
+        "secret": os.getenv("PLAID_SECRET"),
+    },
+)
+
+plaid_api_client = plaid.ApiClient(configuration)
+plaid_client = plaid_api.PlaidApi(plaid_api_client)
 
 
 @router.post("/transfer/internal")
@@ -125,4 +154,69 @@ def create_recurring_payment(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create recurring payment",
+        )
+
+
+@router.post("/external/initiate")
+def transfer_external(
+    request: ExternalTransferRequest, session: SessionDep, user_info: AuthDep
+):
+    try:
+        account = session.get(Account, request.account_id)
+
+        if not account:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Account not found",
+            )
+
+        if account.status != AccountStatus.ACTIVE:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Account is not active",
+            )
+        user = session.get(User, user_info.user_id)
+        if not user or account.customer_id != user.customer_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Account does not belong to user",
+            )
+        customer = user.customer
+        assert customer is not None  # for mypy
+
+        # call plaid
+        # https://plaid.com/docs/api/products/transfer/account-linking/#transferintentcreate
+        transfer_intent = plaid_client.transfer_intent_create(
+            TransferIntentCreateRequest(
+                mode=TransferIntentCreateMode("PAYMENT"),
+                amount=str(request.amount),
+                description="transfer",
+                ach_class=ACHClass("ppd"),
+                user={"legal_name": f"{customer.first_name} {customer.last_name}"},
+            )
+        )
+        logger.info(transfer_intent)
+        link_res = plaid_client.link_token_create(
+            LinkTokenCreateRequest(
+                language="en",
+                country_codes=[CountryCode("US")],
+                user={
+                    "legal_name": f"{customer.first_name} {customer.last_name}",
+                    "client_user_id": str(user.user_id),
+                },
+                products=[Products("transfer")],
+                transfer={"intent_id": transfer_intent["transfer_intent"]["id"]},
+                link_customization_name="transfer_customization",
+                client_name="Online Bank",
+            )
+        )
+        logger.info(link_res)
+
+        return {"link_token": link_res["link_token"]}
+    except Exception as e:
+        session.rollback()
+        logger.exception(e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Transfer failed",
         )
