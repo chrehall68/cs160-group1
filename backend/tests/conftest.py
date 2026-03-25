@@ -17,14 +17,14 @@ from app import app as fastapi_app
 @pytest.fixture(scope="session")
 def database_url():
     with PostgresContainer(
-        "postgres:17",
+        "postgres:17-alpine",
         driver="psycopg",
     ) as postgres:
         connection_url = postgres.get_connection_url(driver="psycopg")
         yield connection_url
 
 
-# get a new db container for each test to ensure isolation
+# wipe the db before and after each test to ensure isolation
 @pytest.fixture(scope="function")
 def app(database_url):
     engine = db.create_db_and_tables(database_url)
