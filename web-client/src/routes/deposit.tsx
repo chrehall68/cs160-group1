@@ -18,12 +18,6 @@ export const Route = createFileRoute('/deposit')({
 function Deposit() {
   const [selectedAccountId, setSelectedAccountId] = useState('')
   const [amount, setAmount] = useState('')
-  const [street, setStreet] = useState('')
-  const [unit, setUnit] = useState('')
-  const [city, setCity] = useState('')
-  const [state, setState] = useState('')
-  const [zipcode, setZipcode] = useState('')
-  const [country, setCountry] = useState('')
   const [formError, setFormError] = useState('')
   const [success, setSuccess] = useState('')
   const queryClient = useQueryClient()
@@ -49,24 +43,18 @@ function Deposit() {
           account_id: Number(selectedAccountId),
           cash_amount: parsedAmount,
           atm_address: {
-            street,
-            unit: unit || undefined,
-            city,
-            state,
-            zipcode,
-            country,
+            street: 'Default ATM',
+            unit: undefined,
+            city: 'San Jose',
+            state: 'CA',
+            zipcode: '95112',
+            country: 'USA', 
           },
         }),
       }),
     onSuccess: async () => {
       setSuccess('Deposit submitted successfully.')
       setAmount('')
-      setStreet('')
-      setUnit('')
-      setCity('')
-      setState('')
-      setZipcode('')
-      setCountry('')
       await queryClient.invalidateQueries({ queryKey: queryKeys.accounts })
       await queryClient.invalidateQueries({
         queryKey: queryKeys.accountTransactions(selectedAccountId),
@@ -131,61 +119,7 @@ function Deposit() {
         </div>
 
         <div className="border-t pt-4">
-          <h3 className="text-lg font-semibold">ATM Address</h3>
-        </div>
-
-        <input
-          type="text"
-          value={street}
-          onChange={(e) => setStreet(e.target.value)}
-          placeholder="Street"
-          className="w-full rounded border px-3 py-2"
-          required
-        />
-
-        <input
-          type="text"
-          value={unit}
-          onChange={(e) => setUnit(e.target.value)}
-          placeholder="Unit (optional)"
-          className="w-full rounded border px-3 py-2"
-        />
-
-        <input
-          type="text"
-          value={city}
-          onChange={(e) => setCity(e.target.value)}
-          placeholder="City"
-          className="w-full rounded border px-3 py-2"
-          required
-        />
-
-        <input
-          type="text"
-          value={state}
-          onChange={(e) => setState(e.target.value)}
-          placeholder="State"
-          className="w-full rounded border px-3 py-2"
-          required
-        />
-
-        <input
-          type="text"
-          value={zipcode}
-          onChange={(e) => setZipcode(e.target.value)}
-          placeholder="Zipcode"
-          className="w-full rounded border px-3 py-2"
-          required
-        />
-
-        <input
-          type="text"
-          value={country}
-          onChange={(e) => setCountry(e.target.value)}
-          placeholder="Country"
-          className="w-full rounded border px-3 py-2"
-          required
-        />
+          
 
         {error && <p className="text-sm text-red-600">{error}</p>}
         {success && <p className="text-sm text-green-600">{success}</p>}
@@ -197,6 +131,7 @@ function Deposit() {
         >
           {depositMutation.isPending ? 'Submitting...' : 'Submit Deposit'}
         </button>
+      </div>
       </form>
     </main>
   )
