@@ -271,12 +271,14 @@ function ExternalTransfer() {
     }
 
     setResponse(null)
+    setLoading(false)
   }
 
   const plaidConfig: PlaidLinkOptions = {
     onSuccess,
     onExit: () => {
       console.log('exit')
+      setLoading(false)
     },
     token: response?.link_token || '',
   }
@@ -289,7 +291,12 @@ function ExternalTransfer() {
   const initiateTransfer = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     setLoading(true)
-    if (!response && selectedAccountId && amount) {
+    setFormError('')
+    if (!selectedAccountId) {
+      setFormError('Please select an account.')
+      return
+    }
+    if (!response) {
       const data: any = await apiRequest('/api/transfer/external/initiate', {
         method: 'POST',
         headers: {
@@ -302,10 +309,18 @@ function ExternalTransfer() {
       })
       setResponse(data)
     }
-    setLoading(false)
   }
 
   console.log('response', response)
+
+  const error =
+    formError ||
+    (accountsQuery.isError &&
+      getErrorMessage(accountsQuery.error, 'Could not load accounts.')) ||
+    (!selectedAccountId && !accountsQuery.isLoading
+      ? 'Please create an account before making a deposit.'
+      : '') ||
+    ''
 
   return (
     <form className="flex flex-col space-y-4" onSubmit={initiateTransfer}>
@@ -321,6 +336,7 @@ function ExternalTransfer() {
           onChange={(e) => setSelectedAccountId(e.target.value)}
           className="mt-1 w-full rounded border px-3 py-2"
           disabled={accountsQuery.isLoading || !accountsQuery.data?.length}
+          required
         >
           {accountsQuery.data?.map((account) => (
             <option key={account.account_id} value={account.account_id}>
@@ -335,11 +351,14 @@ function ExternalTransfer() {
         <DecimalInput val={amount} setVal={setAmount} required />
       </div>
 
-      {formError && <p className="text-sm text-red-600">{formError}</p>}
+      {error && <p className="text-sm text-red-600">{error}</p>}
       {success && <p className="text-sm text-green-600">{success}</p>}
 
       <button
-        className="w-full rounded bg-(--lagoon) px-4 py-2 font-semibold text-white hover:bg-[var(--lagoon-deep)]"
+        className={clsx(
+          'w-full rounded bg-(--lagoon) px-4 py-2 font-semibold text-white hover:bg-[var(--lagoon-deep)]',
+          loading && 'opacity-50 cursor-wait',
+        )}
         type="submit"
         disabled={loading}
       >
