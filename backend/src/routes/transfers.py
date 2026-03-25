@@ -189,7 +189,7 @@ def transfer_external(
         transfer_intent = plaid_client.transfer_intent_create(
             TransferIntentCreateRequest(
                 mode=TransferIntentCreateMode("PAYMENT"),
-                amount=str(request.amount),
+                amount=f"{request.amount:.2f}",
                 description="transfer",
                 ach_class=ACHClass("ppd"),
                 user={"legal_name": f"{customer.first_name} {customer.last_name}"},
