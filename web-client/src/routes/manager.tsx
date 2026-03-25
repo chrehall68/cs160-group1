@@ -9,7 +9,7 @@ export const Route = createFileRoute('/manager')({
     }
 
     if (!isAdmin()) {
-      throw redirect({ to: '/dashboard' })
+      throw redirect({ to: '/accounts' })
     }
   },
   component: ManagerDashboard,
