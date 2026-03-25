@@ -3,13 +3,12 @@ from sqlmodel import select
 
 from dependencies.db import SessionDep
 from dependencies.auth import AuthDep
-from models import Account, RecurringPayment, AccountStatus
+from models import Account, RecurringPayment, AccountStatus, User
 from dtos.transactions import (
     InternalTransferRequest,
     RecurringPaymentRequest,
 )
 from lib.transfers import process_transfer, TransferException
-from lib.users import get_associated_user
 from datetime import date
 
 router = APIRouter()
@@ -38,8 +37,8 @@ def transfer_money(
         )
 
     # check ownership
-    user = get_associated_user(from_account.customer_id, session)
-    if not user or user.user_id != user_info.user_id:
+    user = session.get(User, user_info.user_id)
+    if not user or from_account.customer_id != user.customer_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Account does not belong to user",
@@ -93,8 +92,8 @@ def create_recurring_payment(
         )
 
     # check ownership
-    user = get_associated_user(account.customer_id, session)
-    if not user or user.user_id != user_info.user_id:
+    user = session.get(User, user_info.user_id)
+    if not user or account.customer_id != user.customer_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Account does not belong to user",

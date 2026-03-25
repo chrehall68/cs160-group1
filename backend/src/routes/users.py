@@ -10,7 +10,7 @@ from dependencies.auth import (
     create_access_token,
 )
 from datetime import datetime, timezone
-from lib.users import get_or_create_address
+from lib.utils import get_or_create_address
 import logging
 
 logger = logging.getLogger("uvicorn.error")

@@ -20,7 +20,7 @@ from models import (
     DepositType,
     User,
 )
-from lib.users import get_or_create_address
+from lib.utils import get_or_create_address
 from dtos.accounts import CreateAccountRequest, CashDepositRequest, WithdrawRequest
 from decimal import Decimal
 import logging
