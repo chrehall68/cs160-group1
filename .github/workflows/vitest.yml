@@ -3,8 +3,14 @@ name: ViTest
 on:
     push:
         branches: ["main"]
+        paths:
+            - "web-client/**"
+            - ".github/workflows/vitest.yml"
     pull_request:
         branches: ["main"]
+        paths:
+            - "web-client/**"
+            - ".github/workflows/vitest.yml"
 
 jobs:
     test:

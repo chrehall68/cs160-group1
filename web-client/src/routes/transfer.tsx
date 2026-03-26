@@ -248,10 +248,6 @@ function ExternalTransfer() {
   }, [accountsQuery.data, selectedAccountId])
 
   const onSuccess: PlaidLinkOnSuccess = async (publicToken, metadata) => {
-    console.log('publicToken', publicToken)
-    console.log('metadata', metadata)
-
-    console.log('response', response)
     try {
       const data: any = await apiRequest('/api/transfer/external/complete', {
         method: 'POST',
@@ -277,14 +273,13 @@ function ExternalTransfer() {
   const plaidConfig: PlaidLinkOptions = {
     onSuccess,
     onExit: () => {
-      console.log('exit')
       setLoading(false)
     },
     token: response?.link_token || '',
   }
 
   const { open, exit, ready } = usePlaidLink(plaidConfig)
-  if (response?.link_token) {
+  if (response?.link_token && loading) {
     open()
   }
 
@@ -310,8 +305,6 @@ function ExternalTransfer() {
       setResponse(data)
     }
   }
-
-  console.log('response', response)
 
   const error =
     formError ||
