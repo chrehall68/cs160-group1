@@ -1,0 +1,15 @@
+FROM node:22-alpine AS base
+WORKDIR /app
+COPY ./package.json /app/package.json
+COPY ./package-lock.json /app/package-lock.json
+RUN npm install
+COPY ./src /app/src
+COPY ./index.html /app/index.html
+COPY ./vite.config.ts /app/vite.config.ts
+COPY ./tsconfig.json /app/tsconfig.json
+RUN npm run build
+FROM nginx:alpine3.23 AS final
+WORKDIR /app
+COPY --from=base /app/dist /app/dist
+COPY ./nginx.conf /etc/nginx/nginx.conf
+EXPOSE 80

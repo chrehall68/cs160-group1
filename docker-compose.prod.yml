@@ -1,0 +1,47 @@
+services:
+  frontend:
+    build:
+      context: ./web-client
+      dockerfile: Dockerfile.prod
+    ports:
+      - "80:80"
+    depends_on:
+      database:
+        condition: service_healthy
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    environment:
+      DB_USER: ${DB_USER:? "Missing DB_USER env var"}
+      DB_PASSWORD: ${DB_PASSWORD:? "Missing DB_PASSWORD env var"}
+      DB_LOCATION: database
+      DB_NAME: postgres
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:? "Missing JWT_SECRET_KEY env var"}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:? "Missing GOOGLE_API_KEY env var"}
+      PLAID_CLIENT_ID: ${PLAID_CLIENT_ID:? "Missing PLAID_CLIENT_ID env var"}
+      PLAID_SECRET: ${PLAID_SECRET:? "Missing PLAID_SECRET env var"}
+    depends_on:
+      database:
+        condition: service_healthy
+
+  database:
+    image: postgres:17-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 1m
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+    volumes:
+      - db_volume:/var/lib/postgresql/data
+
+volumes:
+  db_volume:
