@@ -1,10 +1,10 @@
-import { DecimalInput } from '#/components/Inputs'
+import { DecimalInput } from '@/components/Inputs'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
-import { apiRequest, getErrorMessage } from '../lib/api'
-import { isAuthenticated } from '../lib/auth'
-import { fetchAccounts, queryKeys } from '../lib/queries'
+import { apiRequest, getErrorMessage } from '@/lib/api'
+import { isAuthenticated } from '@/lib/auth'
+import { fetchAccounts, queryKeys } from '@/lib/queries'
 
 export const Route = createFileRoute('/withdraw')({
   beforeLoad: () => {

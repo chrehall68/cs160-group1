@@ -1,9 +1,10 @@
 import random
 from fastapi import APIRouter, HTTPException, status
-from sqlmodel import select, Session
+from sqlmodel import select, func, Session
 from dependencies.db import SessionDep
 from dependencies.auth import AuthDep
 from dependencies.admin import AdminDep
+from typing import Optional
 from constants import ROUTING_NUMBER
 from models import (
     Account,
@@ -209,15 +210,44 @@ def get_account(
 
 
 @router.get("/manager/accounts")
-def get_all_accounts_admin(user_info: AdminDep, session: SessionDep):
+def get_all_accounts_admin(
+    user_info: AdminDep,
+    session: SessionDep,
+    page: int = 1,
+    limit: int = 10,
+    account_type: Optional[str] = None,
+    account_status: Optional[str] = None,
+    min_balance: Optional[float] = None,
+):
     """
     GET /manager/accounts
-    Returns all accounts in the database.
+    Returns paginated accounts in the database.
     Requires admin authentication.
     """
     try:
-        accounts = session.exec(select(Account)).all()
-        return accounts
+        query = select(Account)
+        count_query = select(func.count()).select_from(Account)
+
+        if account_type:
+            query = query.where(Account.account_type == account_type)
+            count_query = count_query.where(Account.account_type == account_type)
+        if account_status:
+            query = query.where(Account.status == account_status)
+            count_query = count_query.where(Account.status == account_status)
+        if min_balance is not None:
+            query = query.where(Account.balance >= min_balance)
+            count_query = count_query.where(Account.balance >= min_balance)
+
+        total = session.exec(count_query).one()
+        total_pages = (total + limit - 1) // limit
+
+        accounts = session.exec(
+            query.order_by(Account.account_id)  # type: ignore
+            .offset((page - 1) * limit)
+            .limit(limit)
+        ).all()
+
+        return {"data": accounts, "total_pages": total_pages, "page": page}
 
     except HTTPException:
         raise

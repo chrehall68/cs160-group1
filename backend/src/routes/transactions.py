@@ -1,11 +1,13 @@
 from fastapi import APIRouter, HTTPException, status
-from sqlmodel import select, func
+from sqlmodel import select, func, col
 
 from dependencies.db import SessionDep
 from dependencies.auth import AuthDep
 from dependencies.admin import AdminDep
 from models import Account, Transaction, LedgerEntry, User
 from dtos.transactions import TransactionResponse
+from typing import Optional
+from datetime import datetime
 import logging
 
 logger = logging.getLogger("uvicorn.error")
@@ -99,15 +101,56 @@ def get_account_transactions(
 
 
 @router.get("/manager/transactions")
-def get_all_transactions(user_info: AdminDep, session: SessionDep):
+def get_all_transactions(
+    user_info: AdminDep,
+    session: SessionDep,
+    page: int = 1,
+    limit: int = 10,
+    transaction_type: Optional[str] = None,
+    transaction_status: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    min_amount: Optional[float] = None,
+):
     """
     GET /manager/transactions
-    Returns all transactions in the database.
+    Returns paginated transactions in the database.
     Requires admin authentication.
     """
     try:
-        transactions = session.exec(select(Transaction)).all()
-        return transactions
+        query = select(Transaction)
+        count_query = select(func.count()).select_from(Transaction)
+
+        if transaction_type:
+            query = query.where(Transaction.transaction_type == transaction_type)
+            count_query = count_query.where(
+                Transaction.transaction_type == transaction_type
+            )
+        if transaction_status:
+            query = query.where(Transaction.status == transaction_status)
+            count_query = count_query.where(Transaction.status == transaction_status)
+        if start_date:
+            start = datetime.fromisoformat(start_date)
+            query = query.where(Transaction.created_at >= start)
+            count_query = count_query.where(Transaction.created_at >= start)
+        if end_date:
+            end = datetime.fromisoformat(end_date)
+            query = query.where(Transaction.created_at <= end)
+            count_query = count_query.where(Transaction.created_at <= end)
+        if min_amount is not None:
+            query = query.where(Transaction.amount >= min_amount)
+            count_query = count_query.where(Transaction.amount >= min_amount)
+
+        total = session.exec(count_query).one()
+        total_pages = (total + limit - 1) // limit
+
+        transactions = session.exec(
+            query.order_by(-Transaction.transaction_id)  # type: ignore
+            .offset((page - 1) * limit)
+            .limit(limit)
+        ).all()
+
+        return {"data": transactions, "total_pages": total_pages, "page": page}
 
     except HTTPException:
         raise
