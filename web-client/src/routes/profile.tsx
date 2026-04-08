@@ -20,9 +20,15 @@ function RouteComponent() {
   const queryClient = useQueryClient()
   const auth = useAuthSession()
   const [showDeletePopup, setShowDeletePopup] = useState(false)
+  
+  // === NEW: Check if the current user is an admin ===
+  const isAdminUser = auth.role === 'admin'
+
   const profileQuery = useQuery({
     queryKey: queryKeys.customer,
     queryFn: fetchCustomer,
+    // === NEW: Only run this fetch if the user is NOT an admin ===
+    enabled: !isAdminUser,
   })
 
   useEffect(() => {
@@ -55,10 +61,12 @@ function RouteComponent() {
     },
   })
 
-  const firstName = profileQuery.data?.first_name ?? ''
-  const lastName = profileQuery.data?.last_name ?? ''
-  const email = profileQuery.data?.email ?? ''
-  const phone = profileQuery.data?.phone ?? ''
+  // === NEW: Show dummy data for Admin, otherwise show fetched data ===
+  const firstName = isAdminUser ? 'System' : (profileQuery.data?.first_name ?? '')
+  const lastName = isAdminUser ? 'Admin' : (profileQuery.data?.last_name ?? '')
+  const email = isAdminUser ? 'admin@onlinebank.com' : (profileQuery.data?.email ?? '')
+  const phone = isAdminUser ? 'N/A' : (profileQuery.data?.phone ?? '')
+  
   const fullName = `${firstName} ${lastName}`.trim() || 'User'
   const initials =
     [firstName, lastName]
@@ -80,7 +88,7 @@ function RouteComponent() {
   const deleteError =
     deleteUserMutation.isError &&
     getErrorMessage(deleteUserMutation.error, 'Unable to delete this user.')
-  const isLoading = profileQuery.isLoading
+  const isLoading = profileQuery.isLoading && !isAdminUser // Ensure admin isn't stuck loading
   const isDeleting = deleteUserMutation.isPending
 
   return (
