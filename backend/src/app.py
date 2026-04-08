@@ -10,6 +10,7 @@ from routes.transfers import router as transfers_router
 from scheduler import scheduler
 from fastapi.middleware.cors import CORSMiddleware
 import logging
+from routes.manager import router as manager_router
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -45,6 +46,7 @@ app.include_router(accounts_router)
 app.include_router(transactions_router)
 app.include_router(atm_router)
 app.include_router(transfers_router)
+app.include_router(manager_router)
 
 
 @app.get("/")
