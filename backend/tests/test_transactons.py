@@ -142,6 +142,40 @@ def test_manager_transactions_rejects_invalid_pagination_arguments(client):
     assert zero_page_response.json() == {"detail": "page must be positive"}
 
 
+def test_manager_transactions_rejects_invalid_date_filters(client):
+    login_admin(client)
+
+    invalid_start_response = client.get(
+        "/manager/transactions", params={"start_date": "not-a-date"}
+    )
+    invalid_end_response = client.get(
+        "/manager/transactions", params={"end_date": "2026-13-01"}
+    )
+
+    assert invalid_start_response.status_code == 400
+    assert invalid_start_response.json() == {
+        "detail": "start_date must be a valid ISO 8601 date or datetime"
+    }
+    assert invalid_end_response.status_code == 400
+    assert invalid_end_response.json() == {
+        "detail": "end_date must be a valid ISO 8601 date or datetime"
+    }
+
+
+def test_manager_transactions_rejects_start_date_after_end_date(client):
+    login_admin(client)
+
+    response = client.get(
+        "/manager/transactions",
+        params={"start_date": "2026-04-10", "end_date": "2026-04-09"},
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": "start_date must be before or equal to end_date"
+    }
+
+
 def test_manager_transactions_rejects_non_admin(client):
     register_user(client)
 

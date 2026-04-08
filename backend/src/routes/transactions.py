@@ -15,6 +15,17 @@ logger = logging.getLogger("uvicorn.error")
 router = APIRouter()
 
 
+def parse_iso_datetime(value: str, field_name: str) -> datetime:
+    """Parse an ISO 8601 date/datetime string into a datetime."""
+    try:
+        return datetime.fromisoformat(value)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"{field_name} must be a valid ISO 8601 date or datetime",
+        ) from exc
+
+
 @router.get("/transactions/{account_id}")
 def get_account_transactions(
     account_id: int,
@@ -129,6 +140,14 @@ def get_all_transactions(
                 detail="page must be positive",
             )
 
+        start = parse_iso_datetime(start_date, "start_date") if start_date else None
+        end = parse_iso_datetime(end_date, "end_date") if end_date else None
+        if start and end and start > end:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="start_date must be before or equal to end_date",
+            )
+
         query = select(Transaction)
         count_query = select(func.count()).select_from(Transaction)
 
@@ -140,12 +159,10 @@ def get_all_transactions(
         if transaction_status:
             query = query.where(Transaction.status == transaction_status)
             count_query = count_query.where(Transaction.status == transaction_status)
-        if start_date:
-            start = datetime.fromisoformat(start_date)
+        if start:
             query = query.where(Transaction.created_at >= start)
             count_query = count_query.where(Transaction.created_at >= start)
-        if end_date:
-            end = datetime.fromisoformat(end_date)
+        if end:
             query = query.where(Transaction.created_at <= end)
             count_query = count_query.where(Transaction.created_at <= end)
         if min_amount is not None:
