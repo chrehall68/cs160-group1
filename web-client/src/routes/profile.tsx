@@ -1,10 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { clearAuthSession, isAuthenticated, useAuthSession } from '#/lib/auth'
-import Popup from '#/components/Popup'
+import { clearAuthSession, isAuthenticated, useAuthSession } from '@/lib/auth'
+import Popup from '@/components/Popup'
 import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
-import { apiRequest, getErrorMessage, isApiError } from '../lib/api'
-import { fetchCustomer, queryKeys } from '../lib/queries'
+import { apiRequest, getErrorMessage, isApiError } from '@/lib/api'
+import { fetchCustomer, queryKeys } from '@/lib/queries'
 
 export const Route = createFileRoute('/profile')({
   beforeLoad: () => {

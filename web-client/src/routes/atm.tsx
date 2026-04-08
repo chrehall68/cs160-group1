@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import { isAuthenticated } from '../lib/auth'
+import { isAuthenticated } from '@/lib/auth'
 import { useState } from 'react'
-import { getErrorMessage } from '../lib/api'
-import { queryKeys, searchNearbyAtms } from '../lib/queries'
-import type { ATMResult } from '../lib/queries'
+import { getErrorMessage } from '@/lib/api'
+import { queryKeys, searchNearbyAtms } from '@/lib/queries'
+import type { ATMResult } from '@/lib/queries'
 
 export const Route = createFileRoute('/atm')({
   beforeLoad: () => {

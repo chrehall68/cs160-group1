@@ -6,8 +6,8 @@ import {
   useRouter,
 } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
-import { apiRequest, getErrorMessage } from '../lib/api'
-import { isAuthenticated, setAuthSession } from '../lib/auth'
+import { apiRequest, getErrorMessage } from '@/lib/api'
+import { isAuthenticated, setAuthSession } from '@/lib/auth'
 
 export const Route = createFileRoute('/signup')({
   beforeLoad: () => {

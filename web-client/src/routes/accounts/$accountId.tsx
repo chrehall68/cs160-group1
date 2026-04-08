@@ -1,12 +1,12 @@
-import Account from '#/components/Account'
-import Popup from '#/components/Popup'
-import { formatCurrency } from '#/lib/utils'
+import Account from '@/components/Account'
+import Popup from '@/components/Popup'
+import { formatCurrency } from '@/lib/utils'
 import { clearAuthSession, isAuthenticated } from '@/lib/auth'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
-import { apiRequest, getErrorMessage, isApiError } from '../../lib/api'
-import { fetchAccount, fetchTransactions, queryKeys } from '../../lib/queries'
+import { apiRequest, getErrorMessage, isApiError } from '@/lib/api'
+import { fetchAccount, fetchTransactions, queryKeys } from '@/lib/queries'
 
 export const Route = createFileRoute('/accounts/$accountId')({
   beforeLoad: () => {

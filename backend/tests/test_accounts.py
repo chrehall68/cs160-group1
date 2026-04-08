@@ -3,7 +3,7 @@ from sqlmodel import Session, func, select
 from models import ATM
 from dependencies.db import get_engine
 
-from tests.shared import create_account, make_atm_address, register_user
+from tests.shared import create_account, login_admin, make_atm_address, register_user
 
 
 def test_create_account_returns_account_id_for_authenticated_user(client):
@@ -187,3 +187,45 @@ def test_no_duplicate_atms_created(client):
         count = session.exec(select(func.count()).select_from(ATM)).one()
 
     assert count == 1
+
+
+def test_manager_accounts_returns_paginated_accounts_for_admin(client):
+    register_user(client)
+    account_id = create_account(client, "savings")
+
+    login_admin(client)
+
+    response = client.get("/manager/accounts", params={"page": 1, "limit": 10})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["page"] == 1
+    assert body["total_pages"] >= 1
+
+    returned_account = next(
+        account for account in body["data"] if account["account_id"] == account_id
+    )
+    assert returned_account["account_type"] == "savings"
+    assert returned_account["status"] == "active"
+    assert returned_account["balance"] == "0.00"
+
+
+def test_manager_accounts_rejects_invalid_pagination_arguments(client):
+    login_admin(client)
+
+    zero_limit_response = client.get("/manager/accounts", params={"limit": 0})
+    zero_page_response = client.get("/manager/accounts", params={"page": 0})
+
+    assert zero_limit_response.status_code == 400
+    assert zero_limit_response.json() == {"detail": "limit must be positive"}
+    assert zero_page_response.status_code == 400
+    assert zero_page_response.json() == {"detail": "page must be positive"}
+
+
+def test_manager_accounts_rejects_non_admin(client):
+    register_user(client)
+
+    response = client.get("/manager/accounts")
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": "Access denied. Admin privileges required."}

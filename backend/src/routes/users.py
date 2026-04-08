@@ -1,7 +1,9 @@
 from fastapi import APIRouter, HTTPException, status, Response, Request
-from sqlmodel import select
+from sqlmodel import select, func, col
 from dependencies.db import SessionDep
+from dependencies.admin import AdminDep
 from models import User, Customer, Account, AccountStatus
+from typing import Optional
 from dtos.users import LoginRequest, RegisterRequest
 from dependencies.auth import (
     AuthDep,
@@ -280,6 +282,158 @@ def delete_user(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred",
+        )
+
+
+@router.get("/manager/users")
+def get_all_users(
+    user_info: AdminDep,
+    session: SessionDep,
+    page: int = 1,
+    limit: int = 10,
+    username: Optional[str] = None,
+    role: Optional[str] = None,
+    user_status: Optional[str] = None,
+):
+    """
+    GET /manager/users
+    Returns paginated users in the database (excluding password hashes).
+    Requires admin authentication.
+    """
+    try:
+        if limit <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="limit must be positive",
+            )
+        if page <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="page must be positive",
+            )
+
+        query = select(User)
+        count_query = select(func.count()).select_from(User)
+
+        if username:
+            query = query.where(col(User.username).ilike(f"%{username}%"))
+            count_query = count_query.where(col(User.username).ilike(f"%{username}%"))
+        if role:
+            query = query.where(User.role == role)
+            count_query = count_query.where(User.role == role)
+        if user_status:
+            query = query.where(User.status == user_status)
+            count_query = count_query.where(User.status == user_status)
+
+        total = session.exec(count_query).one()
+        total_pages = (total + limit - 1) // limit
+
+        users = session.exec(
+            query.order_by(User.user_id)  # type: ignore
+            .offset((page - 1) * limit)
+            .limit(limit)
+        ).all()
+
+        safe_users = [
+            {
+                "user_id": u.user_id,
+                "customer_id": u.customer_id,
+                "username": u.username,
+                "role": u.role,
+                "status": u.status,
+                "last_login": u.last_login,
+                "created_at": u.created_at,
+            }
+            for u in users
+        ]
+        return {"data": safe_users, "total_pages": total_pages, "page": page}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while fetching users",
+        )
+
+
+@router.get("/manager/customers")
+def get_all_customers(
+    user_info: AdminDep,
+    session: SessionDep,
+    page: int = 1,
+    limit: int = 10,
+    name: Optional[str] = None,
+    email: Optional[str] = None,
+    kyc_status: Optional[str] = None,
+):
+    """
+    GET /manager/customers
+    Returns paginated customers in the database.
+    Requires admin authentication.
+    """
+    try:
+        if limit <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="limit must be positive",
+            )
+        if page <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="page must be positive",
+            )
+
+        query = select(Customer)
+        count_query = select(func.count()).select_from(Customer)
+
+        if name:
+            name_filter = col(Customer.first_name).ilike(f"%{name}%") | col(
+                Customer.last_name
+            ).ilike(f"%{name}%")
+            query = query.where(name_filter)
+            count_query = count_query.where(name_filter)
+        if email:
+            query = query.where(col(Customer.email).ilike(f"%{email}%"))
+            count_query = count_query.where(col(Customer.email).ilike(f"%{email}%"))
+        if kyc_status:
+            query = query.where(Customer.kyc_status == kyc_status)
+            count_query = count_query.where(Customer.kyc_status == kyc_status)
+
+        total = session.exec(count_query).one()
+        total_pages = (total + limit - 1) // limit
+
+        customers = session.exec(
+            query.order_by(Customer.customer_id)  # type: ignore
+            .offset((page - 1) * limit)
+            .limit(limit)
+        ).all()
+
+        safe_customers = [
+            {
+                "customer_id": c.customer_id,
+                "customer_type": c.customer_type,
+                "first_name": c.first_name,
+                "last_name": c.last_name,
+                "date_of_birth": c.date_of_birth,
+                "email": c.email,
+                "phone_number": c.phone_number,
+                "address_id": c.address_id,
+                "kyc_status": c.kyc_status,
+            }
+            for c in customers
+        ]
+
+        return {"data": safe_customers, "total_pages": total_pages, "page": page}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while fetching customers",
         )
 
 

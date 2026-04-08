@@ -1,6 +1,6 @@
 from datetime import date
 from fastapi.testclient import TestClient
-from tests.shared import make_register_payload
+from tests.shared import login_admin, make_register_payload
 from sqlmodel import func, select, Session
 from models import Address
 from dependencies.db import get_engine
@@ -245,3 +245,100 @@ def test_account_creation_requires_auth(client):
     resp = client.post("/accounts/create", json={"account_type": "checking"})
     # should be unauthorized because no cookie is present
     assert resp.status_code == 401
+
+
+def test_manager_users_returns_paginated_safe_users_for_admin(client):
+    created_user = make_register_payload(username="manager_user_target")
+    create_response = client.post("/user", json=created_user)
+    assert create_response.status_code == 200
+
+    login_admin(client)
+
+    response = client.get("/manager/users", params={"page": 1, "limit": 10})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["page"] == 1
+    assert body["total_pages"] >= 1
+
+    usernames = {user["username"] for user in body["data"]}
+    assert "admin" in usernames
+    assert created_user["username"] in usernames
+
+    target_user = next(
+        user for user in body["data"] if user["username"] == created_user["username"]
+    )
+    assert "password_hash" not in target_user
+    assert target_user["role"] == "user"
+    assert target_user["status"] == "active"
+
+
+def test_manager_users_rejects_invalid_pagination_arguments(client):
+    login_admin(client)
+
+    zero_limit_response = client.get("/manager/users", params={"limit": 0})
+    zero_page_response = client.get("/manager/users", params={"page": 0})
+
+    assert zero_limit_response.status_code == 400
+    assert zero_limit_response.json() == {"detail": "limit must be positive"}
+    assert zero_page_response.status_code == 400
+    assert zero_page_response.json() == {"detail": "page must be positive"}
+
+
+def test_manager_users_rejects_non_admin(client):
+    register_response = client.post("/user", json=make_register_payload())
+    assert register_response.status_code == 200
+
+    response = client.get("/manager/users")
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": "Access denied. Admin privileges required."}
+
+
+def test_manager_customers_returns_paginated_customers_for_admin(client):
+    created_user = make_register_payload(username="manager_customer_target")
+    create_response = client.post("/user", json=created_user)
+    assert create_response.status_code == 200
+
+    login_admin(client)
+
+    response = client.get("/manager/customers", params={"page": 1, "limit": 10})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["page"] == 1
+    assert body["total_pages"] >= 1
+
+    emails = {customer["email"] for customer in body["data"]}
+    assert created_user["email"] in emails
+
+    target_customer = next(
+        customer
+        for customer in body["data"]
+        if customer["email"] == created_user["email"]
+    )
+    assert target_customer["first_name"] == created_user["first_name"]
+    assert target_customer["last_name"] == created_user["last_name"]
+    assert target_customer["kyc_status"] == "pending"
+
+
+def test_manager_customers_rejects_invalid_pagination_arguments(client):
+    login_admin(client)
+
+    zero_limit_response = client.get("/manager/customers", params={"limit": 0})
+    zero_page_response = client.get("/manager/customers", params={"page": 0})
+
+    assert zero_limit_response.status_code == 400
+    assert zero_limit_response.json() == {"detail": "limit must be positive"}
+    assert zero_page_response.status_code == 400
+    assert zero_page_response.json() == {"detail": "page must be positive"}
+
+
+def test_manager_customers_rejects_non_admin(client):
+    register_response = client.post("/user", json=make_register_payload())
+    assert register_response.status_code == 200
+
+    response = client.get("/manager/customers")
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": "Access denied. Admin privileges required."}

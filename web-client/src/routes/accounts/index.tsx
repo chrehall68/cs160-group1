@@ -1,11 +1,11 @@
-import Account from '#/components/Account'
+import Account from '@/components/Account'
 import '@/lib/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
-import { apiRequest, getErrorMessage } from '../../lib/api'
-import { isAuthenticated } from '../../lib/auth'
-import { fetchAccounts, queryKeys } from '../../lib/queries'
+import { apiRequest, getErrorMessage } from '@/lib/api'
+import { isAuthenticated } from '@/lib/auth'
+import { fetchAccounts, queryKeys } from '@/lib/queries'
 
 export const Route = createFileRoute('/accounts/')({
   beforeLoad: () => {
