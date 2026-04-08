@@ -3,6 +3,7 @@ from fastapi import APIRouter, HTTPException, status
 from sqlmodel import select, Session
 from dependencies.db import SessionDep
 from dependencies.auth import AuthDep
+from dependencies.admin import AdminDep
 from constants import ROUTING_NUMBER
 from models import (
     Account,
@@ -204,6 +205,27 @@ def get_account(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred",
+        )
+
+
+@router.get("/manager/accounts")
+def get_all_accounts_admin(user_info: AdminDep, session: SessionDep):
+    """
+    GET /manager/accounts
+    Returns all accounts in the database.
+    Requires admin authentication.
+    """
+    try:
+        accounts = session.exec(select(Account)).all()
+        return accounts
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while fetching accounts",
         )
 
 

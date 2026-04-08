@@ -3,6 +3,7 @@ from sqlmodel import select, func
 
 from dependencies.db import SessionDep
 from dependencies.auth import AuthDep
+from dependencies.admin import AdminDep
 from models import Account, Transaction, LedgerEntry, User
 from dtos.transactions import TransactionResponse
 import logging
@@ -94,4 +95,25 @@ def get_account_transactions(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get transactions",
+        )
+
+
+@router.get("/manager/transactions")
+def get_all_transactions(user_info: AdminDep, session: SessionDep):
+    """
+    GET /manager/transactions
+    Returns all transactions in the database.
+    Requires admin authentication.
+    """
+    try:
+        transactions = session.exec(select(Transaction)).all()
+        return transactions
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while fetching transactions",
         )

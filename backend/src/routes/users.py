@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, status, Response, Request
 from sqlmodel import select
 from dependencies.db import SessionDep
+from dependencies.admin import AdminDep
 from models import User, Customer, Account, AccountStatus
 from dtos.users import LoginRequest, RegisterRequest
 from dependencies.auth import (
@@ -280,6 +281,61 @@ def delete_user(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred",
+        )
+
+
+@router.get("/manager/users")
+def get_all_users(user_info: AdminDep, session: SessionDep):
+    """
+    GET /manager/users
+    Returns all users in the database (excluding password hashes).
+    Requires admin authentication.
+    """
+    try:
+        users = session.exec(select(User)).all()
+
+        safe_users = [
+            {
+                "user_id": u.user_id,
+                "customer_id": u.customer_id,
+                "username": u.username,
+                "role": u.role,
+                "status": u.status,
+                "last_login": u.last_login,
+                "created_at": u.created_at,
+            }
+            for u in users
+        ]
+        return safe_users
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while fetching users",
+        )
+
+
+@router.get("/manager/customers")
+def get_all_customers(user_info: AdminDep, session: SessionDep):
+    """
+    GET /manager/customers
+    Returns all customers in the database.
+    Requires admin authentication.
+    """
+    try:
+        customers = session.exec(select(Customer)).all()
+        return customers
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while fetching customers",
         )
 
 
