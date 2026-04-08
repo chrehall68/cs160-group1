@@ -1,6 +1,12 @@
 from fastapi.testclient import TestClient
 
-from tests.shared import create_account, register_user, withdraw_cash, deposit_cash
+from tests.shared import (
+    create_account,
+    deposit_cash,
+    login_admin,
+    register_user,
+    withdraw_cash,
+)
 
 
 def test_get_account_transactions_returns_empty_history_for_new_account(client):
@@ -89,3 +95,57 @@ def test_get_account_transactions_rejects_missing_account(client):
 
     assert response.status_code == 404
     assert response.json() == {"detail": "Account not found"}
+
+
+def test_manager_transactions_returns_newest_first_with_pagination_for_admin(client):
+    register_user(client)
+    account_id = create_account(client)
+
+    deposit_cash(client, account_id, "100.00")
+    withdraw_cash(client, account_id, "30.00")
+    deposit_cash(client, account_id, "5.00")
+
+    login_admin(client)
+
+    first_page = client.get("/manager/transactions", params={"page": 1, "limit": 2})
+    second_page = client.get("/manager/transactions", params={"page": 2, "limit": 2})
+
+    assert first_page.status_code == 200
+    first_page_body = first_page.json()
+    assert first_page_body["page"] == 1
+    assert first_page_body["total_pages"] == 2
+    assert len(first_page_body["data"]) == 2
+    assert first_page_body["data"][0]["amount"] == "5.00"
+    assert first_page_body["data"][1]["amount"] == "30.00"
+    assert (
+        first_page_body["data"][0]["transaction_id"]
+        > first_page_body["data"][1]["transaction_id"]
+    )
+
+    assert second_page.status_code == 200
+    second_page_body = second_page.json()
+    assert second_page_body["page"] == 2
+    assert second_page_body["total_pages"] == 2
+    assert len(second_page_body["data"]) == 1
+    assert second_page_body["data"][0]["amount"] == "100.00"
+
+
+def test_manager_transactions_rejects_invalid_pagination_arguments(client):
+    login_admin(client)
+
+    zero_limit_response = client.get("/manager/transactions", params={"limit": 0})
+    zero_page_response = client.get("/manager/transactions", params={"page": 0})
+
+    assert zero_limit_response.status_code == 400
+    assert zero_limit_response.json() == {"detail": "limit must be positive"}
+    assert zero_page_response.status_code == 400
+    assert zero_page_response.json() == {"detail": "page must be positive"}
+
+
+def test_manager_transactions_rejects_non_admin(client):
+    register_user(client)
+
+    response = client.get("/manager/transactions")
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": "Access denied. Admin privileges required."}

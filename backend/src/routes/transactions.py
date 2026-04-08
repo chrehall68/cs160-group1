@@ -118,6 +118,17 @@ def get_all_transactions(
     Requires admin authentication.
     """
     try:
+        if limit <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="limit must be positive",
+            )
+        if page <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="page must be positive",
+            )
+
         query = select(Transaction)
         count_query = select(func.count()).select_from(Transaction)
 

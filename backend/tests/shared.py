@@ -30,6 +30,15 @@ def register_user(client, username: str | None = None) -> dict:
     return payload
 
 
+def login_admin(client):
+    response = client.post(
+        "/login",
+        json={"username": "admin", "password": "password"},
+    )
+    assert response.status_code == 200
+    return response.json()
+
+
 def create_account(client, account_type: str = "checking") -> int:
     response = client.post("/accounts/create", json={"account_type": account_type})
     assert response.status_code == 200
