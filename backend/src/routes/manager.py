@@ -9,9 +9,10 @@ logger = logging.getLogger("uvicorn.error")
 
 router = APIRouter(prefix="/manager", tags=["manager"])
 
+
 def _verify_admin(user_info: AuthDep):
     """Helper to ensure the requesting user is an admin."""
-    # Based on your delete route, user_info.role might evaluate to the string "admin" 
+    # Based on your delete route, user_info.role might evaluate to the string "admin"
     # or the Enum UserRole.ADMIN. Checking both/either keeps it safe.
     if user_info.role != "admin" and user_info.role != UserRole.ADMIN:
         raise HTTPException(
@@ -30,7 +31,7 @@ def get_all_users(user_info: AuthDep, session: SessionDep):
     _verify_admin(user_info)
     try:
         users = session.exec(select(User)).all()
-        
+
         # Manually construct the response to ensure password_hash is NEVER sent to the frontend
         safe_users = [
             {
@@ -40,7 +41,7 @@ def get_all_users(user_info: AuthDep, session: SessionDep):
                 "role": u.role,
                 "status": u.status,
                 "last_login": u.last_login,
-                "created_at": u.created_at
+                "created_at": u.created_at,
             }
             for u in users
         ]
