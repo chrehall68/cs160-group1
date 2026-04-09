@@ -116,7 +116,7 @@ function RouteComponent() {
                   deleteUserMutation.reset()
                   setShowDeletePopup(false)
                 }}
-                className="rounded border border-[var(--line)] bg-white px-4 py-2 font-semibold text-[var(--sea-ink)] hover:bg-black/5"
+                className="rounded border border-[var(--line)] bg-[var(--popup-bg)] px-4 py-2 font-semibold text-[var(--sea-ink)] hover:bg-black/5"
               >
                 Cancel
               </button>
@@ -138,7 +138,7 @@ function RouteComponent() {
           <p className="island-kicker mb-2">Profile</p>
           <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-4">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-[var(--line)] bg-white/80 text-xl font-bold text-[var(--sea-ink)]">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-[var(--line)] bg-[var(--popup-bg)] text-xl font-bold text-[var(--sea-ink)]">
                 {initials}
               </div>
               <div>

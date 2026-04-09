@@ -15,7 +15,7 @@ export default function Account({
   return (
     <div
       key={account.account_id}
-      className={clsx('rounded-lg bg-white/80 p-6 shadow-md', className)}
+      className={clsx('rounded-lg bg-[var(--surface-strong)] p-6 shadow-md', className)}
       {...props}
     >
       <div className="flex flex-col justify-between">
@@ -37,13 +37,13 @@ export default function Account({
       </div>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <div className="rounded-md bg-[rgba(255,255,255,0.55)] p-4">
+        <div className="rounded-md bg-[var(--surface)] p-4">
           <p className="text-sm text-(--sea-ink-soft)">Available Balance</p>
           <p className="mt-1 text-xl font-semibold">
             {formatCurrency(account.balance)}
           </p>
         </div>
-        <div className="rounded-md bg-[rgba(255,255,255,0.55)] p-4">
+        <div className="rounded-md bg-[var(--surface)] p-4">
           <p className="text-sm text-(--sea-ink-soft)">Account Type</p>
           <p className="mt-1 text-xl font-semibold">
             {toTitleCase(account.account_type)}

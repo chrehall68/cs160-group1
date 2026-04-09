@@ -33,7 +33,7 @@ export default function Popup({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-lg bg-white p-6 shadow-md"
+        className="w-full max-w-md rounded-lg bg-[var(--popup-bg)] p-6 shadow-md"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4">

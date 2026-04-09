@@ -20,13 +20,13 @@ export const Route = createFileRoute('/accounts/$accountId')({
 function Transaction({ transaction }: { transaction: TransactionType }) {
   const formatted = formatCurrency(transaction.amount, transaction.currency)
   return (
-    <div className="flex flex-row justify-between items-center rounded-lg bg-white/80 p-6 shadow-md">
+    <div className="flex flex-row justify-between items-center rounded-lg bg-[var(--surface-strong)] p-6 shadow-md">
       {transaction.type == 'credit' ? (
         <p className="text-green-700">+{formatted}</p>
       ) : (
         <p className="text-red-700">-{formatted}</p>
       )}
-      <p className="text-sm text-(--sea-ink-soft)">
+      <p className="text-sm text-[var(--sea-ink-soft)]">
         Created at {transaction.created_at}
       </p>
     </div>
@@ -187,7 +187,7 @@ function AccountPage() {
                   closeAccountMutation.reset()
                   setShowPopup(false)
                 }}
-                className="rounded border border-(--line) bg-white px-4 py-2 font-semibold text-[var(--sea-ink)] hover:bg-black/5"
+                className="rounded border border-(--line) bg-[var(--popup-bg)] px-4 py-2 font-semibold text-[var(--sea-ink)] hover:bg-black/5"
               >
                 Cancel
               </button>
@@ -214,8 +214,8 @@ function AccountPage() {
 
         <h3 className="text-xl font-bold">Account {accountId}</h3>
         {accountQuery.isLoading && (
-          <div className="rounded-lg bg-white/80 p-6 shadow-md">
-            <p className="text-(--sea-ink-soft)">Loading account...</p>
+          <div className="rounded-lg bg-[var(--surface-strong)] p-6 shadow-md">
+            <p className="text-[var(--sea-ink-soft)]">Loading account...</p>
           </div>
         )}
         {accountQuery.isError && !isApiError(accountQuery.error) && (
