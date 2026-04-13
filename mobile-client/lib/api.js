@@ -1,7 +1,14 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
 export async function apiRequest(url, options = {}) {
+  const token = await AsyncStorage.getItem('auth.jwt') ?? ''
   const response = await fetch(url, {
     ...options,
-    credentials: 'include', 
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+      ...options.headers,
+    },
   })
 
   let data = null
