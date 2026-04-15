@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status, Response, Request
+from fastapi import APIRouter, HTTPException, status, Response
 from sqlmodel import select, func, col
 from dependencies.db import SessionDep
 from dependencies.admin import AdminDep
@@ -438,17 +438,12 @@ def get_all_customers(
 
 
 @router.post("/logout")
-def logout(request_obj: Request, response: Response):
+def logout(user_info: AuthDep, response: Response):
     """
     POST /logout
     Logs a user out by removing the JWT cookie. Requires authentication.
     """
     try:
-        if request_obj.cookies.get("access_token") is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Not authenticated",
-            )
         # remove JWT cookie
         # don't need to verify it since we're just deleting it
         response.delete_cookie("access_token")

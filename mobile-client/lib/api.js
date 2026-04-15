@@ -1,24 +1,25 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-export async function apiRequest(url, options = {}) {
-  const token = await AsyncStorage.getItem('auth.jwt') ?? ''
-  const response = await fetch(url, {
+const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_URL || "http://localhost:8000";
+export async function apiRequest(urlSuffix, options = {}) {
+  const token = (await AsyncStorage.getItem("auth.jwt")) ?? "";
+  const response = await fetch(`${BASE_URL}${urlSuffix}`, {
     ...options,
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
       ...options.headers,
     },
-  })
+  });
 
-  let data = null
+  let data = null;
   try {
-    data = await response.json()
+    data = await response.json();
   } catch {}
 
   if (!response.ok) {
-    throw new Error(data?.detail || 'Request failed')
+    throw new Error(data?.detail || "Request failed");
   }
 
-  return data
+  return data;
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Button,
@@ -7,21 +7,16 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  Platform,
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import PageLayout from "../components/PageLayout";
+import { apiRequest } from "../lib/api";
 import { fetchAccounts } from "../lib/queries";
- 
-// ─── API CONFIG ───────────────────────────────────────────────────────────────
-const API_BASE =
-  Platform.OS === "android" ? "http://10.0.2.2:8000" : "http://localhost:8000";
- 
+
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 function digitsOnly(val) {
   return val.replace(/[^0-9]/g, "");
 }
- 
+
 function decimalOnly(val) {
   const cleaned = val.replace(/[^0-9.]/g, "");
   const parts = cleaned.split(".");
@@ -29,7 +24,7 @@ function decimalOnly(val) {
   if (parts[1]?.length > 2) return parts[0] + "." + parts[1].slice(0, 2);
   return cleaned;
 }
- 
+
 // ─── SCREEN ──────────────────────────────────────────────────────────────────
 export default function TransferScreen() {
   const [accounts, setAccounts] = useState([]);
@@ -37,17 +32,17 @@ export default function TransferScreen() {
   const [account, setAccount] = useState("");
   const [routing, setRouting] = useState("");
   const [amount, setAmount] = useState("");
- 
+
   const [loading, setLoading] = useState(false);
   const [accountsLoading, setAccountsLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
- 
+
   // fetch accounts on mount
   useEffect(() => {
     fetchAccounts()
       .then((data) => {
-        console.log('accounts data:', JSON.stringify(data))
+        console.log("accounts data:", JSON.stringify(data));
         if (data.length === 0) {
           setError("You need an account to make a transfer.");
         } else {
@@ -56,31 +51,30 @@ export default function TransferScreen() {
         }
       })
       .catch((err) => {
-        console.log('accounts error:', err.message)
-        setError("Could not load your accounts.")
+        console.log("accounts error:", err.message);
+        setError("Could not load your accounts.");
       })
       .finally(() => setAccountsLoading(false));
   }, []);
- 
+
   const handleSubmit = async () => {
     setError("");
     setSuccess("");
- 
-    if (!fromAccountId) return setError("Please select an account to transfer from.");
+
+    if (!fromAccountId)
+      return setError("Please select an account to transfer from.");
     if (!account) return setError("Please enter a destination account number.");
     if (!routing) return setError("Please enter a routing number.");
-    if (routing.length !== 9) return setError("Routing number must be 9 digits.");
-    if (!amount || parseFloat(amount) <= 0) return setError("Please enter a valid amount.");
- 
+    if (routing.length !== 9)
+      return setError("Routing number must be 9 digits.");
+    const parsedAmount = parseFloat(amount);
+    if (!amount || isNaN(parsedAmount) || parsedAmount <= 0)
+      return setError("Please enter a valid amount.");
+
     setLoading(true);
     try {
-      const token = (await AsyncStorage.getItem("auth.jwt")) ?? "";
-      const res = await fetch(`${API_BASE}/transfer/internal`, {
+      await apiRequest(`/transfer/internal`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify({
           from_account_id: fromAccountId,
           to_account_number: account,
@@ -88,26 +82,24 @@ export default function TransferScreen() {
           amount: parseFloat(amount),
         }),
       });
- 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Transfer failed.");
- 
+
       setSuccess("Transfer submitted successfully!");
       setAccount("");
       setRouting("");
       setAmount("");
-      fetchAccounts().then((data) => {setAccounts(data);})
+      fetchAccounts().then((data) => {
+        setAccounts(data);
+      });
     } catch (e) {
       setError(e.message || "Something went wrong.");
     } finally {
       setLoading(false);
     }
   };
- 
+
   return (
     <PageLayout title="Transfer Money">
       <View style={styles.card}>
- 
         {/* From account picker */}
         <Text style={styles.label}>From Account</Text>
         {accountsLoading ? (
@@ -119,17 +111,35 @@ export default function TransferScreen() {
               return (
                 <TouchableOpacity
                   key={acc.account_id}
-                  style={[styles.accountCard, selected && styles.accountCardSelected]}
+                  style={[
+                    styles.accountCard,
+                    selected && styles.accountCardSelected,
+                  ]}
                   onPress={() => setFromAccountId(acc.account_id)}
                   activeOpacity={0.75}
                 >
-                  <Text style={[styles.accountType, selected && styles.accountTypeSelected]}>
+                  <Text
+                    style={[
+                      styles.accountType,
+                      selected && styles.accountTypeSelected,
+                    ]}
+                  >
                     {acc.account_type}
                   </Text>
-                  <Text style={[styles.accountNumber, selected && styles.accountNumberSelected]}>
+                  <Text
+                    style={[
+                      styles.accountNumber,
+                      selected && styles.accountNumberSelected,
+                    ]}
+                  >
                     ••••{acc.account_number.slice(-4)}
                   </Text>
-                  <Text style={[styles.accountBalance, selected && styles.accountBalanceSelected]}>
+                  <Text
+                    style={[
+                      styles.accountBalance,
+                      selected && styles.accountBalanceSelected,
+                    ]}
+                  >
                     ${parseFloat(acc.balance).toFixed(2)}
                   </Text>
                 </TouchableOpacity>
@@ -137,7 +147,7 @@ export default function TransferScreen() {
             })}
           </View>
         )}
- 
+
         {/* To account number */}
         <Text style={styles.label}>To Account Number</Text>
         <TextInput
@@ -147,7 +157,7 @@ export default function TransferScreen() {
           style={styles.input}
           keyboardType="number-pad"
         />
- 
+
         {/* Routing number */}
         <Text style={styles.label}>Routing Number</Text>
         <TextInput
@@ -158,7 +168,7 @@ export default function TransferScreen() {
           keyboardType="number-pad"
           maxLength={9}
         />
- 
+
         {/* Amount */}
         <Text style={styles.label}>Amount</Text>
         <TextInput
@@ -168,10 +178,10 @@ export default function TransferScreen() {
           style={styles.input}
           keyboardType="decimal-pad"
         />
- 
+
         {!!error && <Text style={styles.errorText}>{error}</Text>}
         {!!success && <Text style={styles.successText}>{success}</Text>}
- 
+
         {loading ? (
           <ActivityIndicator color="#007AFF" />
         ) : (
@@ -181,7 +191,7 @@ export default function TransferScreen() {
     </PageLayout>
   );
 }
- 
+
 const styles = StyleSheet.create({
   card: {
     backgroundColor: "white",
@@ -209,7 +219,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     fontSize: 16,
   },
- 
+
   // account picker
   pickerRow: {
     flexDirection: "row",
@@ -256,7 +266,7 @@ const styles = StyleSheet.create({
   accountBalanceSelected: {
     color: "#0052CC",
   },
- 
+
   // feedback
   errorText: {
     color: "#CC2200",
