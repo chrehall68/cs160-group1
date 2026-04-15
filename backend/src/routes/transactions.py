@@ -1,10 +1,25 @@
 from fastapi import APIRouter, HTTPException, status
+import os
 from sqlmodel import select, func
+import boto3
+from types_boto3_s3 import S3Client
 
 from dependencies.db import SessionDep
 from dependencies.auth import AuthDep
 from dependencies.admin import AdminDep
-from models import Account, Transaction, LedgerEntry, User
+from models import (
+    Account,
+    Transaction,
+    LedgerEntry,
+    User,
+    TransactionType,
+    ATMDeposit,
+    ATM,
+    Address,
+    OnlineDeposit,
+    Withdraw,
+    Transfer,
+)
 from dtos.transactions import TransactionResponse
 from typing import Optional
 from datetime import datetime
@@ -188,4 +203,100 @@ def get_all_transactions(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred while fetching transactions",
+        )
+
+
+@router.get("/transactions/transaction/{transaction_id}")
+def get_transaction(user_info: AuthDep, transaction_id: int, session: SessionDep):
+    try:
+        logger.debug(f"Transaction id: {transaction_id}")
+        transaction = session.get(Transaction, transaction_id)
+        logger.info(f"Transaction: {transaction}")
+
+        if not transaction:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Transaction not found"
+            )
+        account = session.get(Account, transaction.account_id)
+        if not account:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Account not found"
+            )
+
+        user = session.get(User, user_info.user_id)
+        if not user or account.customer_id != user.customer_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Not your transaction"
+            )
+        # get additional info about the transaction
+        transaction_type = transaction.transaction_type
+        match transaction_type:
+            case TransactionType.ATM_DEPOSIT:
+                # get the atm deposit
+                stmt = select(ATMDeposit).where(
+                    ATMDeposit.transaction_id == transaction_id
+                )
+                atm_deposit = session.exec(stmt).one()
+                assert atm_deposit
+                # get the ATM address
+                atm = session.get(ATM, atm_deposit.atm_id)
+                address = session.get(Address, atm.address_id) if atm else None
+                return {
+                    "transaction": transaction,
+                    "atm_deposit": atm_deposit,
+                    "atm_address": (
+                        f"{address.street}, {address.city}, {address.state} {address.zip_code}"
+                        if address
+                        else None
+                    ),
+                }
+            case TransactionType.ONLINE_DEPOSIT:
+                # get the online deposit
+                stmt = select(OnlineDeposit).where(
+                    OnlineDeposit.transaction_id == transaction_id
+                )
+                online_deposit = session.exec(stmt).one()
+                assert online_deposit
+                # then presign a url for the check image
+                client: S3Client = boto3.client("s3")
+                AWS_S3_BUCKET = os.getenv("AWS_S3_BUCKET")
+                presigned_url = client.generate_presigned_url(
+                    "get_object",
+                    Params={"Bucket": AWS_S3_BUCKET, "Key": f"{transaction_id}.png"},
+                    ExpiresIn=3600,  # 1 hour
+                )
+                return {
+                    "transaction": transaction,
+                    "online_deposit": online_deposit,
+                    "check_image_url": presigned_url,
+                }
+            case TransactionType.WITHDRAWAL:
+                # get the withdrawal
+                stmt = select(Withdraw).where(Withdraw.transaction_id == transaction_id)
+                withdrawal = session.exec(stmt).one()
+                assert withdrawal
+                # get the ATM address
+                atm = session.get(ATM, withdrawal.atm_id)
+                address = session.get(Address, atm.address_id) if atm else None
+                return {
+                    "transaction": transaction,
+                    "withdrawal": withdrawal,
+                    "atm_address": (
+                        f"{address.street}, {address.city}, {address.state} {address.zip_code}"
+                        if address
+                        else None
+                    ),
+                }
+            case TransactionType.TRANSFER:
+                # get the transfer
+                stmt = select(Transfer).where(Transfer.transaction_id == transaction_id)
+                transfer = session.exec(stmt).one()
+                assert transfer
+                return {"transaction": transaction, "transfer": transfer}
+
+    except Exception as e:
+        logger.exception(e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while fetching transaction",
         )

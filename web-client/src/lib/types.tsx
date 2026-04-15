@@ -16,3 +16,41 @@ type TransactionType = {
   currency: string
   created_at: string // timestamp string
 }
+
+type TransactionDetail = {
+  transaction: {
+    transaction_id: number
+    account_id: number
+    transaction_type: string
+    amount: number
+    currency: string
+    status: string
+    description: string
+    created_at: string
+  }
+  atm_deposit?: {
+    deposit_id: number
+    transaction_id: number
+    atm_id: number
+    type: string
+  }
+  atm_address?: string | null
+  online_deposit?: {
+    deposit_id: number
+    transaction_id: number
+    check_image_name: string
+    check_from_routing_number: string
+    check_from_account_number: string
+  }
+  check_image_url?: string
+  withdrawal?: {
+    withdraw_id: number
+    transaction_id: number
+    atm_id: number
+  }
+  transfer?: {
+    transfer_id: number
+    transaction_id: number
+    direction: string
+  }
+}
