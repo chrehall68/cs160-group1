@@ -9,8 +9,7 @@ import {
   View,
 } from "react-native";
 import PageLayout from "../components/PageLayout";
-
-const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || "http://localhost:8000";
+import { apiRequest } from "../lib/api";
 
 export default function ATMScreen() {
   const [address, setAddress] = useState("");
@@ -28,19 +27,17 @@ export default function ATMScreen() {
 
     try {
       // 1. Geocode address
-      const geoRes = await fetch(
-        `${BACKEND_URL}/atm/geocode?address=${encodeURIComponent(address)}`
+      const geoData = await apiRequest(
+        `/atm/geocode?address=${encodeURIComponent(address)}`,
       );
-      const geoData = await geoRes.json();
       if (!geoData.results?.length)
-        throw new Error("Location not found. Try a full address, city, or zip code.");
+        throw new Error(
+          "Location not found. Try a full address, city, or zip code.",
+        );
       const { lat, lng } = geoData.results[0].geometry.location;
 
       // 2. Nearby Chase ATMs
-      const placesRes = await fetch(
-        `${BACKEND_URL}/atm/nearby?lat=${lat}&lng=${lng}`
-      );
-      const placesData = await placesRes.json();
+      const placesData = await apiRequest(`/atm/nearby?lat=${lat}&lng=${lng}`);
 
       const atms = placesData.results || [];
 
@@ -82,9 +79,7 @@ export default function ATMScreen() {
         </TouchableOpacity>
       </View>
 
-      {error ? (
-        <Text style={styles.error}>{error}</Text>
-      ) : null}
+      {error ? <Text style={styles.error}>{error}</Text> : null}
 
       {searched && (
         <View style={{ marginTop: 20 }}>

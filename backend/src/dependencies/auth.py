@@ -106,12 +106,16 @@ def get_token_from_request(request: Request) -> str:
         HTTPException with 401 status (Unauthorized) if the token is not found in the cookies.
     """
     token = request.cookies.get("access_token")
-    if not token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated",
-        )
-    return token
+    if token:
+        return token
+    # Authorization header (for mobile)
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        return auth_header[7:]
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Not authenticated",
+    )
 
 
 def get_user_info(request: Request) -> UserInfo:
