@@ -56,6 +56,16 @@ export default function Header() {
 
           {isLoggedIn && !isAdmin && (
             <Link
+              to="/deposit-check"
+              className="nav-link"
+              activeProps={{ className: 'nav-link is-active' }}
+            >
+              Deposit Check
+            </Link>
+          )}
+
+          {isLoggedIn && !isAdmin && (
+            <Link
               to="/withdraw"
               className="nav-link"
               activeProps={{ className: 'nav-link is-active' }}
