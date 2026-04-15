@@ -1,12 +1,12 @@
 import Account from '@/components/Account'
 import Popup from '@/components/Popup'
-import { formatCurrency } from '@/lib/utils'
+import { apiRequest, getErrorMessage, isApiError } from '@/lib/api'
 import { clearAuthSession, isAuthenticated } from '@/lib/auth'
+import { fetchAccount, fetchTransactions, queryKeys } from '@/lib/queries'
+import { formatCurrency } from '@/lib/utils'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
-import { apiRequest, getErrorMessage, isApiError } from '@/lib/api'
-import { fetchAccount, fetchTransactions, queryKeys } from '@/lib/queries'
 
 export const Route = createFileRoute('/accounts/$accountId')({
   beforeLoad: () => {
@@ -17,15 +17,27 @@ export const Route = createFileRoute('/accounts/$accountId')({
   component: AccountPage,
 })
 
+const transactionTypeLabels: Record<TransactionType['transaction_type'], string> = {
+  atm_deposit: 'ATM Deposit',
+  online_deposit: 'Online Deposit',
+  withdrawal: 'Withdrawal',
+  transfer: 'Transfer',
+}
+
 function Transaction({ transaction }: { transaction: TransactionType }) {
   const formatted = formatCurrency(transaction.amount, transaction.currency)
   return (
     <div className="flex flex-row justify-between items-center rounded-lg bg-[var(--surface-strong)] p-6 shadow-md">
-      {transaction.type == 'credit' ? (
-        <p className="text-green-700">+{formatted}</p>
-      ) : (
-        <p className="text-red-700">-{formatted}</p>
-      )}
+      <div className="flex flex-col gap-1">
+        <p className="text-sm font-medium text-(--sea-ink)">
+          {transactionTypeLabels[transaction.transaction_type]}
+        </p>
+        {transaction.ledger_type == 'credit' ? (
+          <p className="text-green-700">+{formatted}</p>
+        ) : (
+          <p className="text-red-700">-{formatted}</p>
+        )}
+      </div>
       <p className="text-sm text-[var(--sea-ink-soft)]">
         Created at {transaction.created_at}
       </p>

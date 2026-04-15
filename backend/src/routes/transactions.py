@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, status
-from sqlmodel import select, func, col
+from sqlmodel import select, func
 
 from dependencies.db import SessionDep
 from dependencies.auth import AuthDep
@@ -92,7 +92,8 @@ def get_account_transactions(
         results = [
             TransactionResponse(
                 transaction_id=e[1].transaction_id,  # type: ignore
-                type=e[0].type,
+                ledger_type=e[0].type,
+                transaction_type=e[1].transaction_type,
                 amount=e[1].amount,
                 currency=e[1].currency,
                 created_at=e[1].created_at,

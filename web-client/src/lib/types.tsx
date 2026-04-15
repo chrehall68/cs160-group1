@@ -10,7 +10,8 @@ type AccountType = {
 }
 type TransactionType = {
   transaction_id: number
-  type: 'debit' | 'credit'
+  ledger_type: 'debit' | 'credit'
+  transaction_type: 'atm_deposit' | 'online_deposit' | 'withdrawal' | 'transfer'
   amount: number
   currency: string
   created_at: string // timestamp string
