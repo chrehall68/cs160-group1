@@ -41,11 +41,11 @@ def test_internal_transfer_to_internal_account_succeeds_and_records_history(clie
         destination_history = other_client.get(f"/transactions/{account_id_b}")
 
         assert source_history.status_code == 200
-        assert source_history.json()["transactions"][0]["type"] == "debit"
+        assert source_history.json()["transactions"][0]["ledger_type"] == "debit"
         assert source_history.json()["transactions"][0]["amount"] == "20.34"
 
         assert destination_history.status_code == 200
-        assert destination_history.json()["transactions"][0]["type"] == "credit"
+        assert destination_history.json()["transactions"][0]["ledger_type"] == "credit"
         assert destination_history.json()["transactions"][0]["amount"] == "20.34"
 
 
@@ -70,7 +70,7 @@ def test_internal_transfer_to_external_account_succeeds(client):
 
     source_history = client.get(f"/transactions/{account_id}")
     assert source_history.status_code == 200
-    assert source_history.json()["transactions"][0]["type"] == "debit"
+    assert source_history.json()["transactions"][0]["ledger_type"] == "debit"
     assert source_history.json()["transactions"][0]["amount"] == "5.00"
 
 

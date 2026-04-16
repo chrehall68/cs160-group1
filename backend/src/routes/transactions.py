@@ -294,6 +294,8 @@ def get_transaction(user_info: AuthDep, transaction_id: int, session: SessionDep
                 assert transfer
                 return {"transaction": transaction, "transfer": transfer}
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception(e)
         raise HTTPException(
