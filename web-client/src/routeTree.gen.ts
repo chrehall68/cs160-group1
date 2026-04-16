@@ -15,6 +15,7 @@ import { Route as SignupRouteImport } from './routes/signup'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as ManagerRouteImport } from './routes/manager'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as DepositCheckRouteImport } from './routes/deposit-check'
 import { Route as DepositRouteImport } from './routes/deposit'
 import { Route as AtmRouteImport } from './routes/atm'
 import { Route as AboutRouteImport } from './routes/about'
@@ -50,6 +51,11 @@ const ManagerRoute = ManagerRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DepositCheckRoute = DepositCheckRouteImport.update({
+  id: '/deposit-check',
+  path: '/deposit-check',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DepositRoute = DepositRouteImport.update({
@@ -88,6 +94,7 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/atm': typeof AtmRoute
   '/deposit': typeof DepositRoute
+  '/deposit-check': typeof DepositCheckRoute
   '/login': typeof LoginRoute
   '/manager': typeof ManagerRoute
   '/profile': typeof ProfileRoute
@@ -102,6 +109,7 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/atm': typeof AtmRoute
   '/deposit': typeof DepositRoute
+  '/deposit-check': typeof DepositCheckRoute
   '/login': typeof LoginRoute
   '/manager': typeof ManagerRoute
   '/profile': typeof ProfileRoute
@@ -117,6 +125,7 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/atm': typeof AtmRoute
   '/deposit': typeof DepositRoute
+  '/deposit-check': typeof DepositCheckRoute
   '/login': typeof LoginRoute
   '/manager': typeof ManagerRoute
   '/profile': typeof ProfileRoute
@@ -133,6 +142,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/atm'
     | '/deposit'
+    | '/deposit-check'
     | '/login'
     | '/manager'
     | '/profile'
@@ -147,6 +157,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/atm'
     | '/deposit'
+    | '/deposit-check'
     | '/login'
     | '/manager'
     | '/profile'
@@ -161,6 +172,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/atm'
     | '/deposit'
+    | '/deposit-check'
     | '/login'
     | '/manager'
     | '/profile'
@@ -176,6 +188,7 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   AtmRoute: typeof AtmRoute
   DepositRoute: typeof DepositRoute
+  DepositCheckRoute: typeof DepositCheckRoute
   LoginRoute: typeof LoginRoute
   ManagerRoute: typeof ManagerRoute
   ProfileRoute: typeof ProfileRoute
@@ -230,6 +243,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/deposit-check': {
+      id: '/deposit-check'
+      path: '/deposit-check'
+      fullPath: '/deposit-check'
+      preLoaderRoute: typeof DepositCheckRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/deposit': {
       id: '/deposit'
       path: '/deposit'
@@ -280,6 +300,7 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   AtmRoute: AtmRoute,
   DepositRoute: DepositRoute,
+  DepositCheckRoute: DepositCheckRoute,
   LoginRoute: LoginRoute,
   ManagerRoute: ManagerRoute,
   ProfileRoute: ProfileRoute,

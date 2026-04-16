@@ -59,3 +59,10 @@ class AccountResponse(BaseModel):
     balance: Decimal
     currency: str
     created_at: datetime
+
+
+class CheckDepositRequest(BaseModel):
+    account_id: int
+    check_amount: Decimal
+    from_account_number: str
+    from_routing_number: str

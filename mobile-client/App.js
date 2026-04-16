@@ -8,6 +8,7 @@ import AccountsScreen from './screens/AccountsScreen'
 import ATMScreen from './screens/ATMScreen'
 import DashboardScreen from './screens/DashboardScreen'
 import TransferScreen from './screens/TransferScreen'
+import DepositCheckScreen from './screens/DepositCheckScreen'
 import LoginScreen from './screens/LoginScreen'
 import SignupScreen from './screens/SignupScreen'
 
@@ -40,6 +41,7 @@ function Tabs({ onLogout }) {
           if (route.name === 'Dashboard') iconName = 'home'
           else if (route.name === 'Accounts') iconName = 'card'
           else if (route.name === 'Transfer') iconName = 'swap-horizontal'
+          else if (route.name === 'Deposit Check') iconName = 'camera'
           else if (route.name === 'ATM') iconName = 'location'
 
           return <Ionicons name={iconName} size={size} color={color} />
@@ -49,6 +51,7 @@ function Tabs({ onLogout }) {
       <Tab.Screen name="Dashboard" component={DashboardScreen} />
       <Tab.Screen name="Accounts" component={AccountsScreen} />
       <Tab.Screen name="Transfer" component={TransferScreen} />
+      <Tab.Screen name="Deposit Check" component={DepositCheckScreen} />
       <Tab.Screen name="ATM" component={ATMScreen} />
     </Tab.Navigator>
   )
