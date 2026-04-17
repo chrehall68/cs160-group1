@@ -1,9 +1,38 @@
+import io
+from unittest.mock import MagicMock, patch
+
 from fastapi.testclient import TestClient
 from sqlmodel import Session, func, select
-from models import ATM
+from models import ATM, OnlineDeposit, Transaction
 from dependencies.db import get_engine
 
-from tests.shared import create_account, make_atm_address, register_user
+from tests.shared import create_account, login_admin, make_atm_address, register_user
+
+
+def make_check_deposit_data(account_id: int, amount: str = "250.00"):
+    """Build multipart form data for a check deposit request."""
+    return {
+        "data": {
+            "account_id": str(account_id),
+            "check_amount": amount,
+            "from_account_number": "9876543210",
+            "from_routing_number": "110000000",
+        },
+        "files": {
+            "check_img": ("check.png", io.BytesIO(b"fake-png-bytes"), "image/png"),
+        },
+    }
+
+
+def post_check_deposit(client, account_id: int, **overrides):
+    """Helper that posts a check deposit with S3 mocked out."""
+    parts = make_check_deposit_data(account_id)
+    parts["data"].update(overrides)
+    return client.post(
+        "/deposit/check",
+        data=parts["data"],
+        files=parts["files"],
+    )
 
 
 def test_create_account_returns_account_id_for_authenticated_user(client):
@@ -187,3 +216,238 @@ def test_no_duplicate_atms_created(client):
         count = session.exec(select(func.count()).select_from(ATM)).one()
 
     assert count == 1
+
+
+def test_manager_accounts_returns_paginated_accounts_for_admin(client):
+    register_user(client)
+    account_id = create_account(client, "savings")
+
+    login_admin(client)
+
+    response = client.get("/manager/accounts", params={"page": 1, "limit": 10})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["page"] == 1
+    assert body["total_pages"] >= 1
+
+    returned_account = next(
+        account for account in body["data"] if account["account_id"] == account_id
+    )
+    assert returned_account["account_type"] == "savings"
+    assert returned_account["status"] == "active"
+    assert returned_account["balance"] == "0.00"
+
+
+def test_manager_accounts_rejects_invalid_pagination_arguments(client):
+    login_admin(client)
+
+    zero_limit_response = client.get("/manager/accounts", params={"limit": 0})
+    zero_page_response = client.get("/manager/accounts", params={"page": 0})
+
+    assert zero_limit_response.status_code == 400
+    assert zero_limit_response.json() == {"detail": "limit must be positive"}
+    assert zero_page_response.status_code == 400
+    assert zero_page_response.json() == {"detail": "page must be positive"}
+
+
+def test_manager_accounts_rejects_non_admin(client):
+    register_user(client)
+
+    response = client.get("/manager/accounts")
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": "Access denied. Admin privileges required."}
+
+
+@patch("routes.accounts.boto3")
+@patch("routes.accounts.os.getenv", return_value="test-bucket")
+def test_deposit_check_updates_balance(mock_getenv, mock_boto3, client):
+    mock_boto3.client.return_value = MagicMock()
+    register_user(client)
+    account_id = create_account(client)
+
+    response = post_check_deposit(client, account_id, check_amount="250.00")
+
+    assert response.status_code == 200
+    assert response.json() == {}
+
+    account = client.get(f"/accounts/{account_id}").json()
+    assert account["balance"] == "250.00"
+
+
+@patch("routes.accounts.boto3")
+@patch("routes.accounts.os.getenv", return_value="test-bucket")
+def test_deposit_check_creates_transaction_and_online_deposit(
+    mock_getenv, mock_boto3, client
+):
+    mock_boto3.client.return_value = MagicMock()
+    register_user(client)
+    account_id = create_account(client)
+
+    post_check_deposit(client, account_id, check_amount="100.00")
+
+    with Session(get_engine()) as session:
+        txn = session.exec(
+            select(Transaction).where(Transaction.account_id == account_id)
+        ).first()
+        assert txn is not None
+        assert txn.transaction_type.value == "online_deposit"
+        assert txn.status.value == "completed"
+        assert txn.amount == 100
+
+        deposit = session.exec(
+            select(OnlineDeposit).where(
+                OnlineDeposit.transaction_id == txn.transaction_id
+            )
+        ).first()
+        assert deposit is not None
+        assert deposit.check_from_routing_number == "110000000"
+        assert deposit.check_from_account_number == "9876543210"
+
+
+@patch("routes.accounts.boto3")
+@patch("routes.accounts.os.getenv", return_value="test-bucket")
+def test_deposit_check_uploads_to_s3(mock_getenv, mock_boto3, client):
+    mock_s3 = MagicMock()
+    mock_boto3.client.return_value = mock_s3
+    register_user(client)
+    account_id = create_account(client)
+
+    post_check_deposit(client, account_id)
+
+    mock_s3.upload_fileobj.assert_called_once()
+    call_args = mock_s3.upload_fileobj.call_args
+    assert call_args[0][1] == "test-bucket"
+    assert call_args[0][2].endswith(".png")
+
+
+@patch("routes.accounts.boto3")
+@patch("routes.accounts.os.getenv", return_value="test-bucket")
+def test_deposit_check_rejects_nonexistent_account(mock_getenv, mock_boto3, client):
+    mock_boto3.client.return_value = MagicMock()
+    register_user(client)
+
+    response = post_check_deposit(client, account_id=999999)
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Account not found"}
+
+
+@patch("routes.accounts.boto3")
+@patch("routes.accounts.os.getenv", return_value="test-bucket")
+def test_deposit_check_rejects_other_users_account(mock_getenv, mock_boto3, client):
+    mock_boto3.client.return_value = MagicMock()
+
+    with TestClient(client.app, base_url="https://testserver") as owner_client:
+        register_user(owner_client)
+        account_id = create_account(owner_client)
+
+    with TestClient(client.app, base_url="https://testserver") as other_client:
+        register_user(other_client)
+        response = post_check_deposit(other_client, account_id)
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": "Not your account"}
+
+
+@patch("routes.accounts.boto3")
+@patch("routes.accounts.os.getenv", return_value="test-bucket")
+def test_deposit_check_rejects_zero_amount(mock_getenv, mock_boto3, client):
+    mock_boto3.client.return_value = MagicMock()
+    register_user(client)
+    account_id = create_account(client)
+
+    response = post_check_deposit(client, account_id, check_amount="0")
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Amount must be positive"}
+
+
+@patch("routes.accounts.boto3")
+@patch("routes.accounts.os.getenv", return_value="test-bucket")
+def test_deposit_check_rejects_negative_amount(mock_getenv, mock_boto3, client):
+    mock_boto3.client.return_value = MagicMock()
+    register_user(client)
+    account_id = create_account(client)
+
+    response = post_check_deposit(client, account_id, check_amount="-50.00")
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Amount must be positive"}
+
+
+@patch("routes.accounts.boto3")
+@patch("routes.accounts.os.getenv", return_value="test-bucket")
+def test_deposit_check_rejects_invalid_image_type(mock_getenv, mock_boto3, client):
+    mock_boto3.client.return_value = MagicMock()
+    register_user(client)
+    account_id = create_account(client)
+
+    response = client.post(
+        "/deposit/check",
+        data={
+            "account_id": str(account_id),
+            "check_amount": "100.00",
+            "from_account_number": "9876543210",
+            "from_routing_number": "110000000",
+        },
+        files={
+            "check_img": ("check.pdf", io.BytesIO(b"fake-pdf"), "application/pdf"),
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Check image must be PNG or JPEG"}
+
+
+@patch("routes.accounts.boto3")
+@patch("routes.accounts.os.getenv", return_value="test-bucket")
+def test_deposit_check_rejects_own_routing_number(mock_getenv, mock_boto3, client):
+    mock_boto3.client.return_value = MagicMock()
+    register_user(client)
+    account_id = create_account(client)
+
+    response = post_check_deposit(client, account_id, from_routing_number="021000021")
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Checks are not issued by Online Bank"}
+
+
+@patch("routes.accounts.boto3")
+@patch("routes.accounts.os.getenv", return_value="test-bucket")
+def test_deposit_check_on_closed_account(mock_getenv, mock_boto3, client):
+    mock_boto3.client.return_value = MagicMock()
+    register_user(client)
+    account_id = create_account(client)
+    client.delete(f"/accounts/{account_id}")
+
+    response = post_check_deposit(client, account_id)
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Account is not active"}
+
+
+@patch("routes.accounts.boto3")
+@patch("routes.accounts.os.getenv", return_value="test-bucket")
+def test_deposit_check_accepts_jpeg(mock_getenv, mock_boto3, client):
+    mock_boto3.client.return_value = MagicMock()
+    register_user(client)
+    account_id = create_account(client)
+
+    response = client.post(
+        "/deposit/check",
+        data={
+            "account_id": str(account_id),
+            "check_amount": "75.00",
+            "from_account_number": "9876543210",
+            "from_routing_number": "110000000",
+        },
+        files={
+            "check_img": ("check.jpg", io.BytesIO(b"fake-jpeg"), "image/jpeg"),
+        },
+    )
+
+    assert response.status_code == 200
+    account = client.get(f"/accounts/{account_id}").json()
+    assert account["balance"] == "75.00"

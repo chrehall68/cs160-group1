@@ -1,11 +1,11 @@
-import Account from '#/components/Account'
+import Account from '@/components/Account'
 import '@/lib/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
-import { apiRequest, getErrorMessage } from '../../lib/api'
-import { isAuthenticated } from '../../lib/auth'
-import { fetchAccounts, queryKeys } from '../../lib/queries'
+import { apiRequest, getErrorMessage } from '@/lib/api'
+import { isAuthenticated } from '@/lib/auth'
+import { fetchAccounts, queryKeys } from '@/lib/queries'
 
 export const Route = createFileRoute('/accounts/')({
   beforeLoad: () => {
@@ -93,7 +93,7 @@ function Accounts() {
                 />
               ))
             ) : (
-              <div className="rounded-lg bg-white/80 p-6 shadow-md">
+              <div className="rounded-lg bg-[var(--surface-strong)] p-6 shadow-md">
                 <p className="font-semibold">No active accounts found.</p>
                 <p className="mt-1 text-sm text-(--sea-ink-soft)">
                   Create a checking or savings account today!
@@ -102,7 +102,7 @@ function Accounts() {
             )}
           </div>
 
-          <aside className="rounded-lg bg-white/80 p-6 shadow-md lg:self-start">
+          <aside className="rounded-lg bg-[var(--surface-strong)] p-6 shadow-md lg:self-start">
             <h3 className="font-semibold">Create a New Account</h3>
             <form onSubmit={createAccount} className="mt-5 space-y-4">
               <div>
@@ -116,7 +116,7 @@ function Accounts() {
                   id="account-type"
                   value={accountType}
                   onChange={(event) => setAccountType(event.target.value)}
-                  className="mt-1 w-full rounded border border-(--line) bg-white px-3 py-2"
+                  className="mt-1 w-full rounded border border-(--line) bg-[var(--surface-strong)] px-3 py-2"
                 >
                   <option value="checking">Checking</option>
                   <option value="savings">Savings</option>

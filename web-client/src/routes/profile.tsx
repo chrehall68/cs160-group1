@@ -1,10 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { clearAuthSession, isAuthenticated, useAuthSession } from '#/lib/auth'
-import Popup from '#/components/Popup'
+import { clearAuthSession, isAuthenticated, useAuthSession } from '@/lib/auth'
+import Popup from '@/components/Popup'
 import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
-import { apiRequest, getErrorMessage, isApiError } from '../lib/api'
-import { fetchCustomer, queryKeys } from '../lib/queries'
+import { apiRequest, getErrorMessage, isApiError } from '@/lib/api'
+import { fetchCustomer, queryKeys } from '@/lib/queries'
 
 export const Route = createFileRoute('/profile')({
   beforeLoad: () => {
@@ -20,9 +20,15 @@ function RouteComponent() {
   const queryClient = useQueryClient()
   const auth = useAuthSession()
   const [showDeletePopup, setShowDeletePopup] = useState(false)
+  
+  // === NEW: Check if the current user is an admin ===
+  const isAdminUser = auth.role === 'admin'
+
   const profileQuery = useQuery({
     queryKey: queryKeys.customer,
     queryFn: fetchCustomer,
+    // === NEW: Only run this fetch if the user is NOT an admin ===
+    enabled: !isAdminUser,
   })
 
   useEffect(() => {
@@ -55,10 +61,12 @@ function RouteComponent() {
     },
   })
 
-  const firstName = profileQuery.data?.first_name ?? ''
-  const lastName = profileQuery.data?.last_name ?? ''
-  const email = profileQuery.data?.email ?? ''
-  const phone = profileQuery.data?.phone ?? ''
+  // === NEW: Show dummy data for Admin, otherwise show fetched data ===
+  const firstName = isAdminUser ? 'System' : (profileQuery.data?.first_name ?? '')
+  const lastName = isAdminUser ? 'Admin' : (profileQuery.data?.last_name ?? '')
+  const email = isAdminUser ? 'admin@onlinebank.com' : (profileQuery.data?.email ?? '')
+  const phone = isAdminUser ? 'N/A' : (profileQuery.data?.phone ?? '')
+  
   const fullName = `${firstName} ${lastName}`.trim() || 'User'
   const initials =
     [firstName, lastName]
@@ -80,7 +88,7 @@ function RouteComponent() {
   const deleteError =
     deleteUserMutation.isError &&
     getErrorMessage(deleteUserMutation.error, 'Unable to delete this user.')
-  const isLoading = profileQuery.isLoading
+  const isLoading = profileQuery.isLoading && !isAdminUser // Ensure admin isn't stuck loading
   const isDeleting = deleteUserMutation.isPending
 
   return (
@@ -108,7 +116,7 @@ function RouteComponent() {
                   deleteUserMutation.reset()
                   setShowDeletePopup(false)
                 }}
-                className="rounded border border-[var(--line)] bg-white px-4 py-2 font-semibold text-[var(--sea-ink)] hover:bg-black/5"
+                className="rounded border border-[var(--line)] bg-[var(--popup-bg)] px-4 py-2 font-semibold text-[var(--sea-ink)] hover:bg-black/5"
               >
                 Cancel
               </button>
@@ -130,7 +138,7 @@ function RouteComponent() {
           <p className="island-kicker mb-2">Profile</p>
           <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-4">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-[var(--line)] bg-white/80 text-xl font-bold text-[var(--sea-ink)]">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-[var(--line)] bg-[var(--popup-bg)] text-xl font-bold text-[var(--sea-ink)]">
                 {initials}
               </div>
               <div>

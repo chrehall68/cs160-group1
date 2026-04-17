@@ -384,7 +384,7 @@ class ATMDeposit(SQLModel, table=True):
 
 
 # and online deposits are always checks
-# so they need a check number and a check image path
+# so they need a check image path
 class OnlineDeposit(SQLModel, table=True):
     # pk
     deposit_id: Optional[int] = Field(
@@ -400,8 +400,9 @@ class OnlineDeposit(SQLModel, table=True):
         ondelete="CASCADE",
     )
     transaction: Transaction = Relationship()
-    check_number: str = Field(max_length=64, unique=True)
-    check_image_path: str = Field(max_length=512, unique=True)
+    check_image_name: str = Field(max_length=512, unique=True)
+    check_from_routing_number: str = Field(max_length=64)
+    check_from_account_number: str = Field(max_length=64)
 
 
 class PotentialExternalTransfer(SQLModel, table=True):

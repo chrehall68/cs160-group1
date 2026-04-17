@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel, field_validator
 
-from models import LedgerType, RecurringFrequency
+from models import LedgerType, RecurringFrequency, TransactionType
 
 
 class InternalTransferRequest(BaseModel):
@@ -54,7 +54,8 @@ class RecurringPaymentRequest(BaseModel):
 
 class TransactionResponse(BaseModel):
     transaction_id: int
-    type: LedgerType
+    ledger_type: LedgerType
+    transaction_type: TransactionType
     amount: Decimal
     currency: str
     created_at: datetime

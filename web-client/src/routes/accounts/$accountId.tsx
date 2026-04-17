@@ -1,12 +1,17 @@
-import Account from '#/components/Account'
-import Popup from '#/components/Popup'
-import { formatCurrency } from '#/lib/utils'
+import Account from '@/components/Account'
+import Popup from '@/components/Popup'
+import { apiRequest, getErrorMessage, isApiError } from '@/lib/api'
 import { clearAuthSession, isAuthenticated } from '@/lib/auth'
+import {
+  fetchAccount,
+  fetchTransactions,
+  fetchTransactionDetail,
+  queryKeys,
+} from '@/lib/queries'
+import { formatCurrency } from '@/lib/utils'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
-import { apiRequest, getErrorMessage, isApiError } from '../../lib/api'
-import { fetchAccount, fetchTransactions, queryKeys } from '../../lib/queries'
 
 export const Route = createFileRoute('/accounts/$accountId')({
   beforeLoad: () => {
@@ -17,23 +22,185 @@ export const Route = createFileRoute('/accounts/$accountId')({
   component: AccountPage,
 })
 
-function Transaction({ transaction }: { transaction: TransactionType }) {
+const transactionTypeLabels: Record<TransactionType['transaction_type'], string> = {
+  atm_deposit: 'ATM Deposit',
+  online_deposit: 'Online Deposit',
+  withdrawal: 'Withdrawal',
+  transfer: 'Transfer',
+}
+
+function TransactionDetailPopup({
+  transactionId,
+  onClose,
+}: {
+  transactionId: number
+  onClose: () => void
+}) {
+  const detailQuery = useQuery({
+    queryKey: queryKeys.transactionDetail(transactionId),
+    queryFn: () => fetchTransactionDetail(transactionId),
+  })
+
+  const detail = detailQuery.data
+  const txn = detail?.transaction
+
+  return (
+    <Popup
+      title="Transaction Details"
+      description={
+        txn
+          ? `${transactionTypeLabels[txn.transaction_type as TransactionType['transaction_type']]} — ${formatCurrency(txn.amount, txn.currency)}`
+          : 'Loading...'
+      }
+      onClose={onClose}
+    >
+      {detailQuery.isLoading && (
+        <p className="text-sm text-[var(--sea-ink-soft)]">
+          Loading details...
+        </p>
+      )}
+      {detailQuery.isError && (
+        <p className="text-sm text-red-600">
+          {getErrorMessage(detailQuery.error, 'Unable to load details.')}
+        </p>
+      )}
+      {detail && (
+        <div className="space-y-3 text-sm">
+          <div className="flex justify-between">
+            <span className="text-[var(--sea-ink-soft)]">Status</span>
+            <span className="font-medium">{txn?.status}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-[var(--sea-ink-soft)]">Date</span>
+            <span className="font-medium">{txn?.created_at}</span>
+          </div>
+          {txn?.description && (
+            <div className="flex justify-between">
+              <span className="text-[var(--sea-ink-soft)]">Description</span>
+              <span className="font-medium">{txn.description}</span>
+            </div>
+          )}
+
+          {/* ATM Deposit details */}
+          {detail.atm_deposit && (
+            <>
+              <hr className="border-[var(--line)]" />
+              <div className="flex justify-between">
+                <span className="text-[var(--sea-ink-soft)]">Deposit Type</span>
+                <span className="font-medium capitalize">
+                  {detail.atm_deposit.type}
+                </span>
+              </div>
+              {detail.atm_address && (
+                <div className="flex justify-between gap-4">
+                  <span className="text-[var(--sea-ink-soft)] shrink-0">
+                    ATM Location
+                  </span>
+                  <span className="font-medium text-right">
+                    {detail.atm_address}
+                  </span>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Online Deposit details */}
+          {detail.online_deposit && (
+            <>
+              <hr className="border-[var(--line)]" />
+              <div className="flex justify-between">
+                <span className="text-[var(--sea-ink-soft)]">From Routing #</span>
+                <span className="font-medium">
+                  {detail.online_deposit.check_from_routing_number}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[var(--sea-ink-soft)]">From Account #</span>
+                <span className="font-medium">
+                  {detail.online_deposit.check_from_account_number}
+                </span>
+              </div>
+              {detail.check_image_url && (
+                <div className="mt-2">
+                  <p className="text-[var(--sea-ink-soft)] mb-2">Check Image</p>
+                  <img
+                    src={detail.check_image_url}
+                    alt="Deposited check"
+                    className="w-full rounded border border-[var(--line)]"
+                  />
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Withdrawal details */}
+          {detail.withdrawal && detail.atm_address && (
+            <>
+              <hr className="border-[var(--line)]" />
+              <div className="flex justify-between gap-4">
+                <span className="text-[var(--sea-ink-soft)] shrink-0">
+                  ATM Location
+                </span>
+                <span className="font-medium text-right">
+                  {detail.atm_address}
+                </span>
+              </div>
+            </>
+          )}
+
+          {/* Transfer details */}
+          {detail.transfer && (
+            <>
+              <hr className="border-[var(--line)]" />
+              <div className="flex justify-between">
+                <span className="text-[var(--sea-ink-soft)]">Direction</span>
+                <span className="font-medium capitalize">
+                  {detail.transfer.direction}
+                </span>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </Popup>
+  )
+}
+
+function Transaction({
+  transaction,
+  onSelect,
+}: {
+  transaction: TransactionType
+  onSelect: (id: number) => void
+}) {
   const formatted = formatCurrency(transaction.amount, transaction.currency)
   return (
-    <div className="flex flex-row justify-between items-center rounded-lg bg-white/80 p-6 shadow-md">
-      {transaction.type == 'credit' ? (
-        <p className="text-green-700">+{formatted}</p>
-      ) : (
-        <p className="text-red-700">-{formatted}</p>
-      )}
-      <p className="text-sm text-(--sea-ink-soft)">
+    <button
+      type="button"
+      onClick={() => onSelect(transaction.transaction_id)}
+      className="w-full text-left flex flex-row justify-between items-center rounded-lg bg-[var(--surface-strong)] p-6 shadow-md hover:bg-[var(--surface-strong)]/80 transition-colors cursor-pointer"
+    >
+      <div className="flex flex-col gap-1">
+        <p className="text-sm font-medium text-(--sea-ink)">
+          {transactionTypeLabels[transaction.transaction_type]}
+        </p>
+        {transaction.ledger_type == 'credit' ? (
+          <p className="text-green-700">+{formatted}</p>
+        ) : (
+          <p className="text-red-700">-{formatted}</p>
+        )}
+      </div>
+      <p className="text-sm text-[var(--sea-ink-soft)]">
         Created at {transaction.created_at}
       </p>
-    </div>
+    </button>
   )
 }
 function Transactions({ accountId }: { accountId: string }) {
   const [page, setPage] = useState<number>(1)
+  const [selectedTransactionId, setSelectedTransactionId] = useState<
+    number | null
+  >(null)
   const limit = 10
   const transactionsQuery = useQuery({
     queryKey: queryKeys.transactions(accountId, page, limit),
@@ -49,6 +216,13 @@ function Transactions({ accountId }: { accountId: string }) {
 
   return (
     <div className="flex flex-col space-y-4">
+      {selectedTransactionId !== null && (
+        <TransactionDetailPopup
+          transactionId={selectedTransactionId}
+          onClose={() => setSelectedTransactionId(null)}
+        />
+      )}
+
       {transactionsQuery.isLoading ? (
         <p>Loading transactions...</p>
       ) : transactionsQuery.isError ? (
@@ -65,6 +239,7 @@ function Transactions({ accountId }: { accountId: string }) {
           <Transaction
             key={transaction.transaction_id}
             transaction={transaction}
+            onSelect={setSelectedTransactionId}
           />
         ))
       )}
@@ -187,7 +362,7 @@ function AccountPage() {
                   closeAccountMutation.reset()
                   setShowPopup(false)
                 }}
-                className="rounded border border-(--line) bg-white px-4 py-2 font-semibold text-[var(--sea-ink)] hover:bg-black/5"
+                className="rounded border border-(--line) bg-[var(--popup-bg)] px-4 py-2 font-semibold text-[var(--sea-ink)] hover:bg-black/5"
               >
                 Cancel
               </button>
@@ -214,8 +389,8 @@ function AccountPage() {
 
         <h3 className="text-xl font-bold">Account {accountId}</h3>
         {accountQuery.isLoading && (
-          <div className="rounded-lg bg-white/80 p-6 shadow-md">
-            <p className="text-(--sea-ink-soft)">Loading account...</p>
+          <div className="rounded-lg bg-[var(--surface-strong)] p-6 shadow-md">
+            <p className="text-[var(--sea-ink-soft)]">Loading account...</p>
           </div>
         )}
         {accountQuery.isError && !isApiError(accountQuery.error) && (

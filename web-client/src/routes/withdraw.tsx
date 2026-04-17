@@ -1,10 +1,10 @@
-import { DecimalInput } from '#/components/Inputs'
+import { DecimalInput } from '@/components/Inputs'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
-import { apiRequest, getErrorMessage } from '../lib/api'
-import { isAuthenticated } from '../lib/auth'
-import { fetchAccounts, queryKeys } from '../lib/queries'
+import { apiRequest, getErrorMessage } from '@/lib/api'
+import { isAuthenticated } from '@/lib/auth'
+import { fetchAccounts, queryKeys } from '@/lib/queries'
 
 export const Route = createFileRoute('/withdraw')({
   beforeLoad: () => {
@@ -93,7 +93,7 @@ function Withdraw() {
     <main className="page-wrap px-4 pb-8 pt-14">
       <form
         onSubmit={handleSubmit}
-        className="mx-auto max-w-lg space-y-4 rounded-lg bg-white/80 p-6 shadow-lg"
+        className="mx-auto max-w-lg space-y-4 rounded-lg bg-[var(--surface-strong)] p-6 shadow-lg"
       >
         <h2 className="text-2xl font-bold">Withdraw Money</h2>
 
@@ -102,11 +102,15 @@ function Withdraw() {
           <select
             value={selectedAccountId}
             onChange={(e) => setSelectedAccountId(e.target.value)}
-            className="mt-1 w-full rounded border px-3 py-2"
+            className="mt-1 w-full rounded border px-3 py-2 bg-[var(--surface-strong)] text-[var(--sea-ink)]"
             disabled={accountsQuery.isLoading || !accountsQuery.data?.length}
           >
             {accountsQuery.data?.map((account) => (
-              <option key={account.account_id} value={account.account_id}>
+              <option 
+                key={account.account_id}
+                value={account.account_id}
+                style={{ background: 'var(--surface)', color: 'var(--sea-ink)' }}
+              >
                 {account.account_type} ••••{account.account_number.slice(-4)}
               </option>
             ))}

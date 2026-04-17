@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { Link, useRouter } from '@tanstack/react-router'
-import { clearAuthSession, useAuthSession } from '../lib/auth'
+import { clearAuthSession, useAuthSession } from '@/lib/auth'
 
 export default function Header() {
   const router = useRouter()
@@ -34,7 +34,7 @@ export default function Header() {
           </Link>
         </h2>
         <div className="order-3 flex w-full flex-wrap items-center gap-x-4 gap-y-1 pb-1 text-sm font-semibold sm:order-2 sm:w-auto sm:flex-nowrap sm:pb-0">
-          {isLoggedIn && (
+          {isLoggedIn && !isAdmin && (
             <Link
               to="/accounts"
               className="nav-link"
@@ -44,7 +44,7 @@ export default function Header() {
             </Link>
           )}
 
-          {isLoggedIn && (
+          {isLoggedIn && !isAdmin && (
             <Link
               to="/deposit"
               className="nav-link"
@@ -54,7 +54,17 @@ export default function Header() {
             </Link>
           )}
 
-          {isLoggedIn && (
+          {isLoggedIn && !isAdmin && (
+            <Link
+              to="/deposit-check"
+              className="nav-link"
+              activeProps={{ className: 'nav-link is-active' }}
+            >
+              Deposit Check
+            </Link>
+          )}
+
+          {isLoggedIn && !isAdmin && (
             <Link
               to="/withdraw"
               className="nav-link"
@@ -63,7 +73,7 @@ export default function Header() {
               Withdraw
             </Link>
           )}
-          {isLoggedIn && (
+          {isLoggedIn && !isAdmin && (
             <Link
               to="/transfer"
               className="nav-link"
@@ -73,7 +83,7 @@ export default function Header() {
             </Link>
           )}
 
-          {isLoggedIn && (
+          {isLoggedIn && !isAdmin && (
             <Link
               to="/atm"
               className="nav-link"

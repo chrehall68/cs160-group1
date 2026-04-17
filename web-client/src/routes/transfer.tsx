@@ -1,13 +1,13 @@
-import { DecimalInput, IntegerInput } from '#/components/Inputs'
-import { apiRequest, getErrorMessage } from '#/lib/api'
-import { fetchAccounts, queryKeys } from '#/lib/queries'
+import { DecimalInput, IntegerInput } from '@/components/Inputs'
+import { apiRequest, getErrorMessage } from '@/lib/api'
+import { fetchAccounts, queryKeys } from '@/lib/queries'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import clsx from 'clsx'
 import React, { useEffect, useState } from 'react'
 import type { PlaidLinkOnSuccess, PlaidLinkOptions } from 'react-plaid-link'
 import { usePlaidLink } from 'react-plaid-link'
-import { isAuthenticated } from '../lib/auth'
+import { isAuthenticated } from '@/lib/auth'
 
 export const Route = createFileRoute('/transfer')({
   beforeLoad: () => {
@@ -132,11 +132,15 @@ function InternalTransfer() {
         <select
           value={selectedAccountId}
           onChange={(e) => setSelectedAccountId(e.target.value)}
-          className="mt-1 w-full rounded border px-3 py-2"
+          className="mt-1 w-full rounded border px-3 py-2 bg-[var(--surface-strong)] text-[var(--sea-ink)]"
           disabled={accountsQuery.isLoading || !accountsQuery.data?.length}
         >
           {accountsQuery.data?.map((account) => (
-            <option key={account.account_id} value={account.account_id}>
+            <option
+              key={account.account_id}
+              value={account.account_id}
+              style={{ background: 'var(--surface)', color: 'var(--sea-ink)' }}
+            >
               {account.account_type} ••••{account.account_number.slice(-4)}
             </option>
           ))}
@@ -181,13 +185,13 @@ function InternalTransfer() {
       </div>
 
       {isRecurring && (
-        <div className="space-y-4 rounded-lg bg-gray-50 p-4">
+        <div className="space-y-4 rounded-lg bg-[var(--schedule-bg)] p-4">
           <div>
             <label className="block text-sm font-medium">Frequency:</label>
             <select
               value={frequency}
               onChange={(e) => setFrequency(e.target.value)}
-              className="mt-1 w-full rounded border px-3 py-2"
+              className="mt-1 w-full rounded border px-3 py-2 bg-[var(--surface-strong)] text-[var(--sea-ink)]"
             >
               <option value="once">Once</option>
               <option value="weekly">Weekly</option>
@@ -364,14 +368,14 @@ function Transfer() {
   const [internal, setInternal] = useState(true)
   return (
     <main className="page-wrap px-4 pb-8 pt-14">
-      <div className="mx-auto max-w-lg space-y-4 rounded-lg bg-white/80 p-6 shadow-lg">
+      <div className="mx-auto max-w-lg space-y-4 rounded-lg bg-[var(--surface-strong)] p-6 shadow-lg">
         <h2 className="text-2xl font-bold">Transfer Money</h2>
         <div className="flex flex-row w-full justify-start text-sm font-medium items-center">
           <p className="pr-2">Transfer Type:</p>
           <button
             className={clsx(
-              'p-2 border-l-2 border-t-2 border-b-2 hover:bg-gray-200 active:bg-gray-300 hover:cursor-pointer',
-              internal && 'bg-gray-300',
+              'p-2 border-l-2 border-t-2 border-b-2 hover:bg-[var(--transfer-hover)] active:bg-gray-300 hover:cursor-pointer',
+              internal && 'bg-[var(--transfer-active)]',
             )}
             onClick={() => setInternal(true)}
           >
@@ -379,8 +383,8 @@ function Transfer() {
           </button>
           <button
             className={clsx(
-              'p-2 border-2 hover:bg-gray-200 active:bg-gray-300 hover:cursor-pointer',
-              !internal && 'bg-gray-300',
+              'p-2 border-2 hover:bg-[var(--transfer-hover)] active:bg-gray-300 hover:cursor-pointer',
+              !internal && 'bg-[var(--transfer-active)]',
             )}
             onClick={() => setInternal(false)}
           >

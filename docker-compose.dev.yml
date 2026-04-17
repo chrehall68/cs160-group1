@@ -26,6 +26,10 @@ services:
       GOOGLE_API_KEY: ${GOOGLE_API_KEY:? "Missing GOOGLE_API_KEY env var"}
       PLAID_CLIENT_ID: ${PLAID_CLIENT_ID:? "Missing PLAID_CLIENT_ID env var"}
       PLAID_SECRET: ${PLAID_SECRET:? "Missing PLAID_SECRET env var"}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:? "Missing AWS_ACCESS_KEY_ID env var"}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:? "Missing AWS_SECRET_ACCESS_KEY env var"}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:? "Missing AWS_DEFAULT_REGION env var"}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET:? "Missing AWS_S3_BUCKET env var"}
     depends_on:
       database:
         condition: service_healthy

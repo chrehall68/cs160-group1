@@ -1,11 +1,17 @@
 import random
-from fastapi import APIRouter, HTTPException, status
-from sqlmodel import select, Session
+import os
+from fastapi import APIRouter, HTTPException, status, UploadFile, Form
+from sqlmodel import select, func, Session
+from types_boto3_s3 import S3Client
 from dependencies.db import SessionDep
 from dependencies.auth import AuthDep
+from dependencies.admin import AdminDep
+from typing import Optional
 from constants import ROUTING_NUMBER
+import boto3
 from models import (
     Account,
+    OnlineDeposit,
     AccountType,
     AccountStatus,
     ATM,
@@ -21,7 +27,11 @@ from models import (
     User,
 )
 from lib.utils import get_or_create_address
-from dtos.accounts import CreateAccountRequest, CashDepositRequest, WithdrawRequest
+from dtos.accounts import (
+    CreateAccountRequest,
+    CashDepositRequest,
+    WithdrawRequest,
+)
 from decimal import Decimal
 import logging
 
@@ -204,6 +214,67 @@ def get_account(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred",
+        )
+
+
+@router.get("/manager/accounts")
+def get_all_accounts_admin(
+    user_info: AdminDep,
+    session: SessionDep,
+    page: int = 1,
+    limit: int = 10,
+    account_type: Optional[str] = None,
+    account_status: Optional[str] = None,
+    min_balance: Optional[float] = None,
+):
+    """
+    GET /manager/accounts
+    Returns paginated accounts in the database.
+    Requires admin authentication.
+    """
+    try:
+        if limit <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="limit must be positive",
+            )
+        if page <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="page must be positive",
+            )
+
+        query = select(Account)
+        count_query = select(func.count()).select_from(Account)
+
+        if account_type:
+            query = query.where(Account.account_type == account_type)
+            count_query = count_query.where(Account.account_type == account_type)
+        if account_status:
+            query = query.where(Account.status == account_status)
+            count_query = count_query.where(Account.status == account_status)
+        if min_balance is not None:
+            query = query.where(Account.balance >= min_balance)
+            count_query = count_query.where(Account.balance >= min_balance)
+
+        total = session.exec(count_query).one()
+        total_pages = (total + limit - 1) // limit
+
+        accounts = session.exec(
+            query.order_by(Account.account_id)  # type: ignore
+            .offset((page - 1) * limit)
+            .limit(limit)
+        ).all()
+
+        return {"data": accounts, "total_pages": total_pages, "page": page}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while fetching accounts",
         )
 
 
@@ -413,6 +484,115 @@ def withdraw(
     except HTTPException:
         session.rollback()
         raise
+    except Exception as e:
+        session.rollback()
+        logger.exception(e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred",
+        )
+
+
+@router.post("/deposit/check")
+def deposit_check(
+    user_info: AuthDep,
+    session: SessionDep,
+    check_img: UploadFile,
+    account_id: int = Form(),
+    check_amount: Decimal = Form(),
+    from_account_number: str = Form(),
+    from_routing_number: str = Form(),
+):
+    try:
+        account = session.get(Account, account_id)
+        if not account:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Account not found"
+            )
+        assert account.account_id
+        user = session.get(User, user_info.user_id)
+        if not user or not user.customer_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Customer not found"
+            )
+        if account.customer_id != user.customer_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Not your account"
+            )
+        if account.status != AccountStatus.ACTIVE:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Account is not active"
+            )
+        if check_amount <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Amount must be positive",
+            )
+        if check_img.content_type not in ("image/png", "image/jpeg"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Check image must be PNG or JPEG",
+            )
+
+        # make sure the account that issued this check isn't ours
+        if from_routing_number == ROUTING_NUMBER:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Checks are not issued by Online Bank",
+            )
+
+        # create transaction
+        transaction = Transaction(
+            account_id=account.account_id,
+            transaction_type=TransactionType.ONLINE_DEPOSIT,
+            amount=check_amount,
+            currency=account.currency,
+            status=TransactionStatus.PENDING,
+        )
+        session.add(transaction)
+        session.flush()
+
+        # log deposit
+        assert transaction.transaction_id
+        deposit = OnlineDeposit(
+            transaction_id=transaction.transaction_id,
+            check_image_name=f"{transaction.transaction_id}.png",
+            check_from_routing_number=from_routing_number,
+            check_from_account_number=from_account_number,
+        )
+        session.add(deposit)
+
+        # upload to s3
+        client: S3Client = boto3.client("s3")
+        AWS_S3_BUCKET = os.getenv("AWS_S3_BUCKET")
+        assert AWS_S3_BUCKET
+        client.upload_fileobj(
+            check_img.file, AWS_S3_BUCKET, f"{transaction.transaction_id}.png"
+        )
+
+        # update account balance
+        account.balance += check_amount
+        session.add(account)
+
+        # log ledger entry
+        ledger = LedgerEntry(
+            transaction_id=transaction.transaction_id,
+            account_id=account.account_id,
+            type=LedgerType.CREDIT,
+        )
+        session.add(ledger)
+
+        # mark transaction complete
+        transaction.status = TransactionStatus.COMPLETED
+        session.add(transaction)
+        session.commit()
+
+        return {}
+
+    except HTTPException:
+        session.rollback()
+        raise
+
     except Exception as e:
         session.rollback()
         logger.exception(e)

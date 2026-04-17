@@ -6,8 +6,8 @@ import {
   useRouter,
 } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
-import { apiRequest, getErrorMessage } from '../lib/api'
-import { isAuthenticated, setAuthSession } from '../lib/auth'
+import { apiRequest, getErrorMessage } from '@/lib/api'
+import { isAuthenticated, setAuthSession } from '@/lib/auth'
 
 export const Route = createFileRoute('/signup')({
   beforeLoad: () => {
@@ -117,7 +117,7 @@ function SignUp() {
     <main className="page-wrap px-4 pb-8 pt-14">
       <form
         onSubmit={handleSubmit}
-        className="mx-auto max-w-2xl space-y-6 rounded-lg bg-white/80 p-8 shadow-lg backdrop-blur"
+        className="mx-auto max-w-2xl space-y-6 rounded-lg bg-[var(--surface-strong)] p-8 shadow-lg backdrop-blur"
       >
         <h2 className="text-2xl font-bold">Create Account</h2>
 
