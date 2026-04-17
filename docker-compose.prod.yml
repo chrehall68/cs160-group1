@@ -5,9 +5,28 @@ services:
       dockerfile: Dockerfile.prod
     ports:
       - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:? "Missing DOMAIN env var"}
+      NGINX_ENVSUBST_FILTER_VARIABLES: "^DOMAIN$$"
+    volumes:
+      - certbot_certs:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+    command: >
+      /bin/sh -c "while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g 'daemon off;'"
     depends_on:
       database:
         condition: service_healthy
+    restart: unless-stopped
+
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - certbot_certs:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+    entrypoint: >
+      /bin/sh -c "trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot; sleep 12h & wait $${!}; done;"
+    restart: unless-stopped
 
   backend:
     build:
@@ -22,6 +41,10 @@ services:
       GOOGLE_API_KEY: ${GOOGLE_API_KEY:? "Missing GOOGLE_API_KEY env var"}
       PLAID_CLIENT_ID: ${PLAID_CLIENT_ID:? "Missing PLAID_CLIENT_ID env var"}
       PLAID_SECRET: ${PLAID_SECRET:? "Missing PLAID_SECRET env var"}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:? "Missing AWS_ACCESS_KEY_ID env var"}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:? "Missing AWS_SECRET_ACCESS_KEY env var"}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:? "Missing AWS_DEFAULT_REGION env var"}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET:? "Missing AWS_S3_BUCKET env var"}
     depends_on:
       database:
         condition: service_healthy
@@ -35,7 +58,7 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: postgres
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "postgres"]
+      test: [ "CMD", "pg_isready", "-U", "postgres" ]
       interval: 1m
       timeout: 10s
       retries: 5
@@ -45,3 +68,5 @@ services:
 
 volumes:
   db_volume:
+  certbot_certs:
+  certbot_www:
