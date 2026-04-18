@@ -25,6 +25,8 @@ services:
       backend:
         condition: service_healthy
     restart: unless-stopped
+    networks:
+      - app-network
 
   certbot:
     image: certbot/certbot
@@ -35,6 +37,8 @@ services:
       /bin/sh -c "trap exit TERM; while :; do certbot renew --webroot -w
       /var/www/certbot; sleep 12h & wait $${!}; done;"
     restart: unless-stopped
+    networks:
+      - app-network
 
   backend:
     build:
@@ -69,11 +73,14 @@ services:
       retries: 5
       start_period: 30s
     restart: unless-stopped
+    networks:
+      - app-network
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
 
   database:
     image: postgres:17-alpine
-    ports:
-      - "5432:5432"
     environment:
       POSTGRES_USER: ${DB_USER:? "Missing DB_USER env var"}
       POSTGRES_PASSWORD: ${DB_PASSWORD:? "Missing DB_PASSWORD env var"}
@@ -87,8 +94,14 @@ services:
     volumes:
       - db_volume:/var/lib/postgresql/data
     restart: unless-stopped
+    networks:
+      - app-network
 
 volumes:
   db_volume:
   certbot_certs:
   certbot_www:
+
+networks:
+  app-network:
+    driver: bridge
