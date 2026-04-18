@@ -74,8 +74,8 @@ services:
     ports:
       - "5432:5432"
     environment:
-      DB_USER: ${DB_USER:? "Missing DB_USER env var"}
-      DB_PASSWORD: ${DB_PASSWORD:? "Missing DB_PASSWORD env var"}
+      POSTGRES_USER: ${DB_USER:? "Missing DB_USER env var"}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:? "Missing DB_PASSWORD env var"}
       POSTGRES_DB: postgres
     healthcheck:
       test: [ "CMD", "pg_isready", "-U", "postgres" ]
