@@ -1,15 +1,18 @@
+import { getErrorMessage } from '@/lib/api'
+import { isAdmin, isAuthenticated } from '@/lib/auth'
+import type { ATMResult } from '@/lib/queries'
+import { queryKeys, searchNearbyAtms } from '@/lib/queries'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import { isAuthenticated } from '@/lib/auth'
 import { useState } from 'react'
-import { getErrorMessage } from '@/lib/api'
-import { queryKeys, searchNearbyAtms } from '@/lib/queries'
-import type { ATMResult } from '@/lib/queries'
 
 export const Route = createFileRoute('/atm')({
   beforeLoad: () => {
     if (!isAuthenticated()) {
       throw redirect({ to: '/login' })
+    }
+    if (isAdmin()) {
+      throw redirect({ to: '/manager' })
     }
   },
   component: ATM,
@@ -74,17 +77,33 @@ export default function ATM() {
             </h3>
             <ul className="space-y-2">
               {results.map((atm, idx) => (
-                <li key={idx} className="island-shell rounded p-3 flex justify-between items-start">
+                <li
+                  key={idx}
+                  className="island-shell rounded p-3 flex justify-between items-start"
+                >
                   <div>
                     <p className="text-sm">{atm.address}</p>
                     <div className="flex gap-2 mt-1">
-                      <span className="text-xs text-blue-600">{atm.distance} mi away</span>
-                      {atm.open === true && <span className="text-xs text-green-600">Open now</span>}
-                      {atm.open === false && <span className="text-xs text-red-500">Closed</span>}
+                      <span className="text-xs text-blue-600">
+                        {atm.distance} mi away
+                      </span>
+                      {atm.open === true && (
+                        <span className="text-xs text-green-600">Open now</span>
+                      )}
+                      {atm.open === false && (
+                        <span className="text-xs text-red-500">Closed</span>
+                      )}
                     </div>
                   </div>
 
-                  <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(atm.address)}`} target="_blank" rel="noreferrer" className="text-xs text-blue-500 hover:underline shrink-0 ml-4">Maps ↗</a>
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(atm.address)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs text-blue-500 hover:underline shrink-0 ml-4"
+                  >
+                    Maps ↗
+                  </a>
                 </li>
               ))}
             </ul>

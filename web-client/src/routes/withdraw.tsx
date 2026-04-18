@@ -1,15 +1,18 @@
 import { DecimalInput } from '@/components/Inputs'
+import { apiRequest, getErrorMessage } from '@/lib/api'
+import { isAdmin, isAuthenticated } from '@/lib/auth'
+import { fetchAccounts, queryKeys } from '@/lib/queries'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
-import { apiRequest, getErrorMessage } from '@/lib/api'
-import { isAuthenticated } from '@/lib/auth'
-import { fetchAccounts, queryKeys } from '@/lib/queries'
 
 export const Route = createFileRoute('/withdraw')({
   beforeLoad: () => {
     if (!isAuthenticated()) {
       throw redirect({ to: '/login' })
+    }
+    if (isAdmin()) {
+      throw redirect({ to: '/manager' })
     }
   },
   component: Withdraw,
@@ -106,10 +109,13 @@ function Withdraw() {
             disabled={accountsQuery.isLoading || !accountsQuery.data?.length}
           >
             {accountsQuery.data?.map((account) => (
-              <option 
+              <option
                 key={account.account_id}
                 value={account.account_id}
-                style={{ background: 'var(--surface)', color: 'var(--sea-ink)' }}
+                style={{
+                  background: 'var(--surface)',
+                  color: 'var(--sea-ink)',
+                }}
               >
                 {account.account_type} ••••{account.account_number.slice(-4)}
               </option>
@@ -123,18 +129,17 @@ function Withdraw() {
         </div>
 
         <div className="border-t pt-4">
+          {error && <p className="text-sm text-red-600">{error}</p>}
+          {success && <p className="text-sm text-green-600">{success}</p>}
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        {success && <p className="text-sm text-green-600">{success}</p>}
-
-        <button
-          type="submit"
-          disabled={withdrawMutation.isPending || accountsQuery.isLoading}
-          className="w-full rounded bg-[var(--lagoon)] px-4 py-2 font-semibold text-white hover:bg-[var(--lagoon-deep)] disabled:opacity-70"
-        >
-          {withdrawMutation.isPending ? 'Submitting...' : 'Submit Withdrawal'}
-        </button>
-      </div>
+          <button
+            type="submit"
+            disabled={withdrawMutation.isPending || accountsQuery.isLoading}
+            className="w-full rounded bg-[var(--lagoon)] px-4 py-2 font-semibold text-white hover:bg-[var(--lagoon-deep)] disabled:opacity-70"
+          >
+            {withdrawMutation.isPending ? 'Submitting...' : 'Submit Withdrawal'}
+          </button>
+        </div>
       </form>
     </main>
   )

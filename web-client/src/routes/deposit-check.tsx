@@ -1,6 +1,6 @@
 import { DecimalInput, IntegerInput } from '@/components/Inputs'
 import { apiRequest, getErrorMessage } from '@/lib/api'
-import { isAuthenticated } from '@/lib/auth'
+import { isAdmin, isAuthenticated } from '@/lib/auth'
 import { fetchAccounts, queryKeys } from '@/lib/queries'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
@@ -10,6 +10,9 @@ export const Route = createFileRoute('/deposit-check')({
   beforeLoad: () => {
     if (!isAuthenticated()) {
       throw redirect({ to: '/login' })
+    }
+    if (isAdmin()) {
+      throw redirect({ to: '/manager' })
     }
   },
   component: DepositCheck,

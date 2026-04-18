@@ -1,16 +1,19 @@
 import Account from '@/components/Account'
+import { apiRequest, getErrorMessage } from '@/lib/api'
+import { isAdmin, isAuthenticated } from '@/lib/auth'
+import { fetchAccounts, queryKeys } from '@/lib/queries'
 import '@/lib/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
-import { apiRequest, getErrorMessage } from '@/lib/api'
-import { isAuthenticated } from '@/lib/auth'
-import { fetchAccounts, queryKeys } from '@/lib/queries'
 
 export const Route = createFileRoute('/accounts/')({
   beforeLoad: () => {
     if (!isAuthenticated()) {
       throw redirect({ to: '/login' })
+    }
+    if (isAdmin()) {
+      throw redirect({ to: '/manager' })
     }
   },
   component: Accounts,

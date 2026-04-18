@@ -1,5 +1,6 @@
 import { DecimalInput, IntegerInput } from '@/components/Inputs'
 import { apiRequest, getErrorMessage } from '@/lib/api'
+import { isAdmin, isAuthenticated } from '@/lib/auth'
 import { fetchAccounts, queryKeys } from '@/lib/queries'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
@@ -7,12 +8,14 @@ import clsx from 'clsx'
 import React, { useEffect, useState } from 'react'
 import type { PlaidLinkOnSuccess, PlaidLinkOptions } from 'react-plaid-link'
 import { usePlaidLink } from 'react-plaid-link'
-import { isAuthenticated } from '@/lib/auth'
 
 export const Route = createFileRoute('/transfer')({
   beforeLoad: () => {
     if (!isAuthenticated()) {
       throw redirect({ to: '/login' })
+    }
+    if (isAdmin()) {
+      throw redirect({ to: '/manager' })
     }
   },
   component: Transfer,
