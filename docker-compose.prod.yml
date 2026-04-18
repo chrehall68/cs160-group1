@@ -12,10 +12,17 @@ services:
     volumes:
       - certbot_certs:/etc/letsencrypt
       - certbot_www:/var/www/certbot
-    command: >
-      /bin/sh -c "while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g 'daemon off;'"
+    command:
+      - /bin/sh
+      - -c
+      - |
+        /docker-entrypoint.d/20-envsubst-on-templates.sh
+        ( while :; do sleep 21600 && nginx -s reload; done ) &
+        exec nginx -g 'daemon off;'
     depends_on:
       database:
+        condition: service_healthy
+      backend:
         condition: service_healthy
     restart: unless-stopped
 
@@ -48,6 +55,12 @@ services:
     depends_on:
       database:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import urllib.request,sys; sys.exit(0 if urllib.request.urlopen(\"http://localhost:8000/healthz\").status == 200 else 1)'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   database:
     image: postgres:17-alpine

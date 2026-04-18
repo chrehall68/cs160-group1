@@ -47,9 +47,9 @@ app.include_router(atm_router)
 app.include_router(transfers_router)
 
 
-@app.get("/")
-def read_root():
-    return {"Hello": "World"}
+@app.get("/healthz")
+def healthz():
+    return {"status": "ok"}
 
 
 # for debugging

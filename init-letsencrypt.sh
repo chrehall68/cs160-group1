@@ -16,7 +16,7 @@ if [ -f .env ]; then
 fi
 
 : "${DOMAIN:?Set DOMAIN (e.g. example.com) before running}"
-: "${CERTBOT_EMAIL:?Set CERTBOT_EMAIL for Let's Encrypt notifications}"
+: "${CERTBOT_EMAIL:?Set CERTBOT_EMAIL for Let\'s Encrypt notifications}"
 
 STAGING_FLAG=""
 if [ "${CERTBOT_STAGING:-0}" = "1" ]; then
