@@ -2,15 +2,13 @@ import { Ionicons } from '@expo/vector-icons'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import { NavigationContainer } from '@react-navigation/native'
 import { useState } from 'react'
-import { TouchableOpacity, Text } from 'react-native' 
-
+import { Text, TouchableOpacity } from 'react-native'
 import AccountsScreen from './screens/AccountsScreen'
 import ATMScreen from './screens/ATMScreen'
-import DashboardScreen from './screens/DashboardScreen'
-import TransferScreen from './screens/TransferScreen'
 import DepositCheckScreen from './screens/DepositCheckScreen'
 import LoginScreen from './screens/LoginScreen'
 import SignupScreen from './screens/SignupScreen'
+import TransferScreen from './screens/TransferScreen'
 
 const Tab = createBottomTabNavigator()
 
@@ -38,8 +36,8 @@ function Tabs({ onLogout }) {
 
         tabBarIcon: ({ color, size }) => {
           let iconName
-          if (route.name === 'Dashboard') iconName = 'home'
-          else if (route.name === 'Accounts') iconName = 'card'
+
+          if (route.name === 'Accounts') iconName = 'card'
           else if (route.name === 'Transfer') iconName = 'swap-horizontal'
           else if (route.name === 'Deposit Check') iconName = 'camera'
           else if (route.name === 'ATM') iconName = 'location'
@@ -48,7 +46,6 @@ function Tabs({ onLogout }) {
         },
       })}
     >
-      <Tab.Screen name="Dashboard" component={DashboardScreen} />
       <Tab.Screen name="Accounts" component={AccountsScreen} />
       <Tab.Screen name="Transfer" component={TransferScreen} />
       <Tab.Screen name="Deposit Check" component={DepositCheckScreen} />
