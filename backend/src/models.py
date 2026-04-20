@@ -212,6 +212,25 @@ class ATM(SQLModel, table=True):
     status: ATMStatus = Field(default=ATMStatus.ACTIVE, max_length=15)
 
 
+class TransactionToAccount(SQLModel, table=True):
+    transaction_id: int | None = Field(
+        index=True,
+        sa_type=BigInteger,
+        foreign_key="transaction.transaction_id",
+        nullable=False,
+        ondelete="CASCADE",
+        primary_key=True,
+    )
+    account_id: int | None = Field(
+        index=True,
+        sa_type=BigInteger,
+        foreign_key="account.account_id",
+        nullable=False,
+        ondelete="CASCADE",
+        primary_key=True,
+    )
+
+
 class Transaction(SQLModel, table=True):
     # pk
     transaction_id: Optional[int] = Field(
@@ -220,14 +239,7 @@ class Transaction(SQLModel, table=True):
         sa_type=BigInteger,
     )
     # fk
-    account_id: int = Field(
-        index=True,
-        sa_type=BigInteger,
-        foreign_key="account.account_id",
-        nullable=False,
-        ondelete="CASCADE",
-    )
-    account: Account = Relationship()
+    accounts: list[Account] = Relationship(link_model=TransactionToAccount)
 
     # Note: ommitted reference number
     # and skipping "fee" and "adjustment" since those aren't

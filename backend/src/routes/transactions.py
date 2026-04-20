@@ -206,8 +206,10 @@ def get_all_transactions(
         )
 
 
-@router.get("/transactions/transaction/{transaction_id}")
-def get_transaction(user_info: AuthDep, transaction_id: int, session: SessionDep):
+@router.get("/transactions/{account_id}/{transaction_id}")
+def get_transaction(
+    user_info: AuthDep, account_id: int, transaction_id: int, session: SessionDep
+):
     try:
         logger.debug(f"Transaction id: {transaction_id}")
         transaction = session.get(Transaction, transaction_id)
@@ -217,7 +219,7 @@ def get_transaction(user_info: AuthDep, transaction_id: int, session: SessionDep
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Transaction not found"
             )
-        account = session.get(Account, transaction.account_id)
+        account = session.get(Account, account_id)
         if not account:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Account not found"
@@ -225,6 +227,12 @@ def get_transaction(user_info: AuthDep, transaction_id: int, session: SessionDep
 
         user = session.get(User, user_info.user_id)
         if not user or account.customer_id != user.customer_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Not your account"
+            )
+        logger.info(f"Account: {account} and transaction {transaction.accounts}")
+        logger.info(f"Inside? {account in transaction.accounts}")
+        if account not in transaction.accounts:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, detail="Not your transaction"
             )

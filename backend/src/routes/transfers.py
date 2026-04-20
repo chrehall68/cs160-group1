@@ -278,7 +278,7 @@ def complete_external_transfer(
         account.balance += potential_transfer.amount
         assert account.account_id
         transaction = Transaction(
-            account_id=account.account_id,
+            accounts=[account],
             amount=potential_transfer.amount,
             transaction_type=TransactionType.TRANSFER,
             status=TransactionStatus.COMPLETED,

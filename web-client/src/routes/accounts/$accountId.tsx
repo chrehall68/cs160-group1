@@ -30,15 +30,17 @@ const transactionTypeLabels: Record<TransactionType['transaction_type'], string>
 }
 
 function TransactionDetailPopup({
+  accountId,
   transactionId,
   onClose,
 }: {
+  accountId: string
   transactionId: number
   onClose: () => void
 }) {
   const detailQuery = useQuery({
-    queryKey: queryKeys.transactionDetail(transactionId),
-    queryFn: () => fetchTransactionDetail(transactionId),
+    queryKey: queryKeys.transactionDetail(accountId, transactionId),
+    queryFn: () => fetchTransactionDetail(accountId, transactionId),
   })
 
   const detail = detailQuery.data
@@ -218,6 +220,7 @@ function Transactions({ accountId }: { accountId: string }) {
     <div className="flex flex-col space-y-4">
       {selectedTransactionId !== null && (
         <TransactionDetailPopup
+          accountId={accountId}
           transactionId={selectedTransactionId}
           onClose={() => setSelectedTransactionId(null)}
         />

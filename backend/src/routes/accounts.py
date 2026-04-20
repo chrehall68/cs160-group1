@@ -352,7 +352,7 @@ def deposit_cash(
         # create transaction
         assert account.account_id
         transaction = Transaction(
-            account_id=account.account_id,
+            accounts=[account],
             transaction_type=TransactionType.ATM_DEPOSIT,
             amount=request.cash_amount,
             currency=account.currency,
@@ -445,7 +445,7 @@ def withdraw(
         # create transaction
         assert account.account_id
         transaction = Transaction(
-            account_id=account.account_id,
+            accounts=[account],
             transaction_type=TransactionType.WITHDRAWAL,
             amount=request.cash_amount,
             currency=account.currency,
@@ -543,7 +543,7 @@ def deposit_check(
 
         # create transaction
         transaction = Transaction(
-            account_id=account.account_id,
+            accounts=[account],
             transaction_type=TransactionType.ONLINE_DEPOSIT,
             amount=check_amount,
             currency=account.currency,

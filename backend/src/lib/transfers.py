@@ -108,7 +108,7 @@ def process_transfer(
     account.balance -= amount
 
     transaction = Transaction(
-        account_id=from_account_id,
+        accounts=[account],
         transaction_type=TransactionType.TRANSFER,
         amount=amount,
         currency="USD",
@@ -149,6 +149,8 @@ def process_transfer(
             raise TransferException("Payee account is not active")
         assert payee.account_id is not None
         payee.balance += amount
+        transaction.accounts.append(payee)
+        session.add(transaction)
         session.add(
             Transfer(
                 transaction_id=transaction.transaction_id,
