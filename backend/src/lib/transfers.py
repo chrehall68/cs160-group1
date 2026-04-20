@@ -16,7 +16,6 @@ from models import (
     TransactionStatus,
     TransactionType,
     Transfer,
-    TransferDirection,
 )
 
 DELTAS = {
@@ -125,7 +124,10 @@ def process_transfer(
     session.add(
         Transfer(
             transaction_id=transaction.transaction_id,
-            direction=TransferDirection.OUTGOING,
+            from_account_number=str(account.account_number),
+            from_routing_number=str(account.routing_number),
+            to_account_number=payee_account_number,
+            to_routing_number=payee_routing_number,
         )
     )
     session.add(
@@ -151,12 +153,6 @@ def process_transfer(
         payee.balance += amount
         transaction.accounts.append(payee)
         session.add(transaction)
-        session.add(
-            Transfer(
-                transaction_id=transaction.transaction_id,
-                direction=TransferDirection.INCOMING,
-            )
-        )
         session.add(
             LedgerEntry(
                 transaction_id=transaction.transaction_id,

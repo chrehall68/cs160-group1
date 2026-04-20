@@ -155,9 +155,27 @@ function TransactionDetailPopup({
             <>
               <hr className="border-[var(--line)]" />
               <div className="flex justify-between">
-                <span className="text-[var(--sea-ink-soft)]">Direction</span>
-                <span className="font-medium capitalize">
-                  {detail.transfer.direction}
+                <span className="text-[var(--sea-ink-soft)]">From Routing #</span>
+                <span className="font-medium">
+                  {detail.transfer.from_routing_number}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[var(--sea-ink-soft)]">From Account #</span>
+                <span className="font-medium">
+                  {detail.transfer.from_account_number}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[var(--sea-ink-soft)]">To Routing #</span>
+                <span className="font-medium">
+                  {detail.transfer.to_routing_number}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[var(--sea-ink-soft)]">To Account #</span>
+                <span className="font-medium">
+                  {detail.transfer.to_account_number}
                 </span>
               </div>
             </>

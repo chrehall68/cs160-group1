@@ -342,10 +342,8 @@ class LedgerEntry(SQLModel, table=True):
 
 
 # transfers
-# following the LLD, if we had an internal transfer,
-# then there would be 2 transfers created;
-# one would have direction "outgoing" and the other would have direction "incoming"
-# and for external transfers, we would have just 1 transfer record.
+# only one will be created per transaction
+# since this stores all the necessary info
 class Transfer(SQLModel, table=True):
     # pk
     transfer_id: Optional[int] = Field(
@@ -362,9 +360,11 @@ class Transfer(SQLModel, table=True):
         ondelete="CASCADE",
     )
     transaction: Transaction = Relationship()
-    # note that we no longer need a type field
-    # since the backend infers internal/external based on routing number
-    direction: TransferDirection = Field(max_length=8)
+    # actual info
+    from_routing_number: str = Field(max_length=64)
+    from_account_number: str = Field(max_length=64)
+    to_routing_number: str = Field(max_length=64)
+    to_account_number: str = Field(max_length=64)
 
 
 # atm deposits

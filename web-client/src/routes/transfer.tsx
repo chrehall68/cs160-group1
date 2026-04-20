@@ -263,6 +263,7 @@ function ExternalTransfer() {
         },
         body: JSON.stringify({
           transfer_intent_id: response?.transfer_intent_id,
+          public_token: publicToken,
         }),
       })
 
