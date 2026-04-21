@@ -1,5 +1,5 @@
 # single machine deployment for tunneled cloudflare deployment
-# 8099 is just a random port number
+# 8099 is just a random port number for debugging
 services:
   frontend:
     build:
@@ -84,8 +84,6 @@ services:
         "run",
         "--token",
         "${CLOUDFLARE_TUNNEL_TOKEN}",
-        "--url",
-        "http://frontend:80",
       ]
 
 volumes:
