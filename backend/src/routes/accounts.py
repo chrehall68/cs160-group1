@@ -330,7 +330,7 @@ def deposit_cash(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Customer not found"
             )
 
-        account = session.get(Account, request.account_id)
+        account = session.get(Account, request.account_id, with_for_update=True)
         if not account:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Account not found"
@@ -424,7 +424,7 @@ def withdraw(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Customer not found"
             )
 
-        account = session.get(Account, request.account_id)
+        account = session.get(Account, request.account_id, with_for_update=True)
         if not account:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Account not found"
@@ -510,7 +510,7 @@ def deposit_check(
     from_routing_number: str = Form(),
 ):
     try:
-        account = session.get(Account, account_id)
+        account = session.get(Account, account_id, with_for_update=True)
         if not account:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Account not found"

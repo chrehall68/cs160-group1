@@ -141,7 +141,11 @@ def process_transfer(
     # handle the other side too
     if payee_routing_number == ROUTING_NUMBER:
         # need to validate that the complement exists
-        stmt = select(Account).where(Account.account_number == payee_account_number)
+        stmt = (
+            select(Account)
+            .where(Account.account_number == payee_account_number)
+            .with_for_update()
+        )
         payee = session.exec(stmt).first()
         if payee is None:
             session.rollback()

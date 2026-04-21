@@ -275,7 +275,9 @@ def complete_external_transfer(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid transfer intent id",
             )
-        account = session.get(Account, potential_transfer.account_id)
+        account = session.get(
+            Account, potential_transfer.account_id, with_for_update=True
+        )
         if not account:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
