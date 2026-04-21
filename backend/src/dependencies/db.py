@@ -5,6 +5,9 @@ from sqlalchemy import Engine, create_engine
 from sqlmodel import SQLModel, Session, select
 from models import *
 from dependencies.auth import hash_password
+import logging
+
+logger = logging.getLogger("uvicorn.error")
 
 # connect to postgres database
 engine: Engine | None = None
@@ -62,21 +65,25 @@ def get_engine():
 
 def create_admin_user():
     # hardcoded admin user
-    with Session(engine) as session:
-        if session.exec(
-            select(User)
-            .where(User.username == "admin")
-            .where(User.role == UserRole.ADMIN)
-        ).first():
-            return
-        admin_user = User(
-            username="admin",
-            role=UserRole.ADMIN,
-            password_hash=hash_password("password"),
-            customer_id=None,
-        )
-        session.add(admin_user)
-        session.commit()
+    # TODO - probably should use a migration for this instead
+    try:
+        with Session(engine) as session:
+            if session.exec(
+                select(User)
+                .where(User.username == "admin")
+                .where(User.role == UserRole.ADMIN)
+            ).first():
+                return
+            admin_user = User(
+                username="admin",
+                role=UserRole.ADMIN,
+                password_hash=hash_password("password"),
+                customer_id=None,
+            )
+            session.add(admin_user)
+            session.commit()
+    except Exception as e:
+        logger.info(e)
 
 
 def create_db_and_tables(database_url: str | None = None) -> Engine:

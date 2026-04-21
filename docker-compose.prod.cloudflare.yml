@@ -9,7 +9,7 @@ services:
       - "8099:80"
     environment:
       DOMAIN: ${DOMAIN:? "Missing DOMAIN env var"}
-      NGINX_ENVSUBST_FILTER_VARIABLES: "^DOMAIN$$"
+      UPSTREAM_KEEPALIVE: ${UPSTREAM_KEEPALIVE:-32}
     command:
       - /bin/sh
       - -c
@@ -28,6 +28,16 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile.prod
+    command:
+      [
+        "fastapi",
+        "run",
+        "src/app.py",
+        "--host",
+        "0.0.0.0",
+        "--workers",
+        "${NUM_WORKERS:-4}",
+      ]
     environment:
       DB_USER: ${DB_USER:? "Missing DB_USER env var"}
       DB_PASSWORD: ${DB_PASSWORD:? "Missing DB_PASSWORD env var"}
@@ -60,6 +70,7 @@ services:
 
   database:
     image: postgres:17-alpine
+    command: [ "postgres", "-c", "max_connections=${POSTGRES_MAX_CONNECTIONS:-100}" ]
     environment:
       POSTGRES_USER: ${DB_USER:? "Missing DB_USER env var"}
       POSTGRES_PASSWORD: ${DB_PASSWORD:? "Missing DB_PASSWORD env var"}
