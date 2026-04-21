@@ -4,11 +4,10 @@ import { apiRequest, getErrorMessage, isApiError } from '@/lib/api'
 import { clearAuthSession, isAuthenticated } from '@/lib/auth'
 import {
   fetchAccount,
-  fetchTransactions,
   fetchTransactionDetail,
+  fetchTransactions,
   queryKeys,
 } from '@/lib/queries'
-import { formatCurrency } from '@/lib/utils'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
@@ -22,7 +21,10 @@ export const Route = createFileRoute('/accounts/$accountId')({
   component: AccountPage,
 })
 
-const transactionTypeLabels: Record<TransactionType['transaction_type'], string> = {
+const transactionTypeLabels: Record<
+  TransactionType['transaction_type'],
+  string
+> = {
   atm_deposit: 'ATM Deposit',
   online_deposit: 'Online Deposit',
   withdrawal: 'Withdrawal',
@@ -51,15 +53,13 @@ function TransactionDetailPopup({
       title="Transaction Details"
       description={
         txn
-          ? `${transactionTypeLabels[txn.transaction_type as TransactionType['transaction_type']]} — ${formatCurrency(txn.amount, txn.currency)}`
+          ? `${transactionTypeLabels[txn.transaction_type as TransactionType['transaction_type']]} — ${'$' + txn.amount}`
           : 'Loading...'
       }
       onClose={onClose}
     >
       {detailQuery.isLoading && (
-        <p className="text-sm text-[var(--sea-ink-soft)]">
-          Loading details...
-        </p>
+        <p className="text-sm text-[var(--sea-ink-soft)]">Loading details...</p>
       )}
       {detailQuery.isError && (
         <p className="text-sm text-red-600">
@@ -111,13 +111,17 @@ function TransactionDetailPopup({
             <>
               <hr className="border-[var(--line)]" />
               <div className="flex justify-between">
-                <span className="text-[var(--sea-ink-soft)]">From Routing #</span>
+                <span className="text-[var(--sea-ink-soft)]">
+                  From Routing #
+                </span>
                 <span className="font-medium">
                   {detail.online_deposit.check_from_routing_number}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[var(--sea-ink-soft)]">From Account #</span>
+                <span className="text-[var(--sea-ink-soft)]">
+                  From Account #
+                </span>
                 <span className="font-medium">
                   {detail.online_deposit.check_from_account_number}
                 </span>
@@ -155,13 +159,17 @@ function TransactionDetailPopup({
             <>
               <hr className="border-[var(--line)]" />
               <div className="flex justify-between">
-                <span className="text-[var(--sea-ink-soft)]">From Routing #</span>
+                <span className="text-[var(--sea-ink-soft)]">
+                  From Routing #
+                </span>
                 <span className="font-medium">
                   {detail.transfer.from_routing_number}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[var(--sea-ink-soft)]">From Account #</span>
+                <span className="text-[var(--sea-ink-soft)]">
+                  From Account #
+                </span>
                 <span className="font-medium">
                   {detail.transfer.from_account_number}
                 </span>
@@ -193,7 +201,6 @@ function Transaction({
   transaction: TransactionType
   onSelect: (id: number) => void
 }) {
-  const formatted = formatCurrency(transaction.amount, transaction.currency)
   return (
     <button
       type="button"
@@ -205,9 +212,9 @@ function Transaction({
           {transactionTypeLabels[transaction.transaction_type]}
         </p>
         {transaction.ledger_type == 'credit' ? (
-          <p className="text-green-700">+{formatted}</p>
+          <p className="text-green-700">+{'$' + transaction.amount}</p>
         ) : (
-          <p className="text-red-700">-{formatted}</p>
+          <p className="text-red-700">-{'$' + transaction.amount}</p>
         )}
       </div>
       <p className="text-sm text-[var(--sea-ink-soft)]">

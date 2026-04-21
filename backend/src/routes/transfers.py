@@ -23,6 +23,7 @@ from dtos.transactions import (
     RecurringPaymentRequest,
 )
 from lib.transfers import process_transfer, TransferException
+from constants import MAX_BALANCE, BALANCE_OVERFLOW_MESSAGE
 from datetime import date
 
 # for external transfers
@@ -202,6 +203,12 @@ def initiate_external_transfer(
         customer = user.customer
         assert customer is not None  # for mypy
 
+        if account.balance + request.amount > MAX_BALANCE:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=BALANCE_OVERFLOW_MESSAGE,
+            )
+
         # call plaid
         # https://plaid.com/docs/api/products/transfer/account-linking/#transferintentcreate
         transfer_intent = plaid_client.transfer_intent_create(
@@ -242,6 +249,9 @@ def initiate_external_transfer(
             "link_token": link_res["link_token"],
             "transfer_intent_id": transfer_intent["transfer_intent"]["id"],
         }
+    except HTTPException:
+        session.rollback()
+        raise
     except Exception as e:
         session.rollback()
         logger.exception(e)
@@ -265,7 +275,9 @@ def complete_external_transfer(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid transfer intent id",
             )
-        account = session.get(Account, potential_transfer.account_id)
+        account = session.get(
+            Account, potential_transfer.account_id, with_for_update=True
+        )
         if not account:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -294,6 +306,12 @@ def complete_external_transfer(
         )
         from_account_num = account_info.numbers["ach"][0]["account"]
         from_routing_num = account_info.numbers["ach"][0]["routing"]
+
+        if account.balance + potential_transfer.amount > MAX_BALANCE:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=BALANCE_OVERFLOW_MESSAGE,
+            )
 
         # and add transaction
         account.balance += potential_transfer.amount
@@ -334,6 +352,9 @@ def complete_external_transfer(
 
         return {"message": "External transfer completed successfully"}
 
+    except HTTPException:
+        session.rollback()
+        raise
     except Exception as e:
         session.rollback()
         logger.exception(e)

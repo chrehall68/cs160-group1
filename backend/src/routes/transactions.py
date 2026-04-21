@@ -230,8 +230,6 @@ def get_transaction(
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, detail="Not your account"
             )
-        logger.info(f"Account: {account} and transaction {transaction.accounts}")
-        logger.info(f"Inside? {account in transaction.accounts}")
         if account not in transaction.accounts:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, detail="Not your transaction"
