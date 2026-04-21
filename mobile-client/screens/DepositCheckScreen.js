@@ -84,8 +84,8 @@ export default function DepositCheckScreen() {
     setSuccess("");
 
     if (!selectedAccountId) return setError("Please select an account.");
-    const parsedAmount = parseFloat(amount);
-    if (!amount || isNaN(parsedAmount) || parsedAmount <= 0)
+    const amountNum = Number(amount);
+    if (!amount || isNaN(amountNum) || amountNum <= 0)
       return setError("Please enter a valid amount.");
     if (!fromAccountNumber)
       return setError("Please enter the check account number.");
@@ -181,7 +181,7 @@ export default function DepositCheckScreen() {
                       selected && styles.accountBalanceSelected,
                     ]}
                   >
-                    ${parseFloat(acc.balance).toFixed(2)}
+                    ${Number(acc.balance).toFixed(2)}
                   </Text>
                 </TouchableOpacity>
               );

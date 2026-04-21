@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 
 from fastapi.testclient import TestClient
 from sqlmodel import Session, func, select
-from models import ATM, OnlineDeposit, Transaction
+from models import ATM, OnlineDeposit, Transaction, TransactionToAccount
 from dependencies.db import get_engine
 
 from tests.shared import create_account, login_admin, make_atm_address, register_user
@@ -289,7 +289,12 @@ def test_deposit_check_creates_transaction_and_online_deposit(
 
     with Session(get_engine()) as session:
         txn = session.exec(
-            select(Transaction).where(Transaction.account_id == account_id)
+            select(Transaction)
+            .join(
+                TransactionToAccount,
+                TransactionToAccount.transaction_id == Transaction.transaction_id,  # type: ignore
+            )
+            .where(TransactionToAccount.account_id == account_id)
         ).first()
         assert txn is not None
         assert txn.transaction_type.value == "online_deposit"

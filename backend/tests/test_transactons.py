@@ -202,7 +202,7 @@ def test_get_transaction_returns_atm_deposit_details(client):
     deposit_cash(client, account_id, "100.00")
 
     transaction_id = _get_transaction_id(client, account_id)
-    response = client.get(f"/transactions/transaction/{transaction_id}")
+    response = client.get(f"/transactions/{account_id}/{transaction_id}")
 
     assert response.status_code == 200
     body = response.json()
@@ -221,7 +221,7 @@ def test_get_transaction_returns_withdrawal_details(client):
     withdraw_cash(client, account_id, "50.00")
 
     transaction_id = _get_transaction_id(client, account_id)
-    response = client.get(f"/transactions/transaction/{transaction_id}")
+    response = client.get(f"/transactions/{account_id}/{transaction_id}")
 
     assert response.status_code == 200
     body = response.json()
@@ -263,7 +263,7 @@ def test_get_transaction_returns_online_deposit_with_presigned_url(
     )
 
     transaction_id = _get_transaction_id(client, account_id)
-    response = client.get(f"/transactions/transaction/{transaction_id}")
+    response = client.get(f"/transactions/{account_id}/{transaction_id}")
 
     assert response.status_code == 200
     body = response.json()
@@ -277,8 +277,9 @@ def test_get_transaction_returns_online_deposit_with_presigned_url(
 
 def test_get_transaction_rejects_nonexistent_transaction(client):
     register_user(client)
+    account_id = create_account(client)
 
-    response = client.get("/transactions/transaction/999999")
+    response = client.get(f"/transactions/{account_id}/999999")
 
     assert response.status_code == 404
     assert response.json() == {"detail": "Transaction not found"}
@@ -287,13 +288,16 @@ def test_get_transaction_rejects_nonexistent_transaction(client):
 def test_get_transaction_rejects_other_users_transaction(client):
     with TestClient(client.app, base_url="https://testserver") as owner_client:
         register_user(owner_client)
-        account_id = create_account(owner_client)
-        deposit_cash(owner_client, account_id, "50.00")
-        transaction_id = _get_transaction_id(owner_client, account_id)
+        owner_account_id = create_account(owner_client)
+        deposit_cash(owner_client, owner_account_id, "50.00")
+        transaction_id = _get_transaction_id(owner_client, owner_account_id)
 
     with TestClient(client.app, base_url="https://testserver") as other_client:
         register_user(other_client)
-        response = other_client.get(f"/transactions/transaction/{transaction_id}")
+        other_account_id = create_account(other_client)
+        response = other_client.get(
+            f"/transactions/{other_account_id}/{transaction_id}"
+        )
 
     assert response.status_code == 403
     assert response.json() == {"detail": "Not your transaction"}

@@ -69,8 +69,8 @@ function DepositCheck() {
     setFormError('')
     setSuccess('')
 
-    const parsedAmount = parseFloat(amount)
-    if (!selectedAccountId || isNaN(parsedAmount) || parsedAmount <= 0) {
+    const amountNum = Number(amount)
+    if (!selectedAccountId || !amount || isNaN(amountNum) || amountNum <= 0) {
       setFormError('Please enter a valid account and amount.')
       return
     }

@@ -36,7 +36,7 @@ function Deposit() {
   }, [accountsQuery.data, selectedAccountId])
 
   const depositMutation = useMutation({
-    mutationFn: (parsedAmount: number) =>
+    mutationFn: (cashAmount: string) =>
       apiRequest('/api/deposit/cash', {
         method: 'POST',
         headers: {
@@ -44,7 +44,7 @@ function Deposit() {
         },
         body: JSON.stringify({
           account_id: Number(selectedAccountId),
-          cash_amount: parsedAmount,
+          cash_amount: cashAmount,
           atm_address: {
             street: 'Default ATM',
             unit: undefined,
@@ -70,14 +70,14 @@ function Deposit() {
     setFormError('')
     setSuccess('')
 
-    const parsedAmount = parseFloat(amount)
-    if (!selectedAccountId || isNaN(parsedAmount) || parsedAmount <= 0) {
+    const amountNum = Number(amount)
+    if (!selectedAccountId || !amount || isNaN(amountNum) || amountNum <= 0) {
       setFormError('Please enter a valid account and amount.')
       return
     }
 
     try {
-      await depositMutation.mutateAsync(parsedAmount)
+      await depositMutation.mutateAsync(amount)
     } catch {}
   }
 
