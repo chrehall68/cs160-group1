@@ -9,13 +9,13 @@ function App() {
         <h1 className="display-title mb-4 text-3xl font-bold tracking-tight sm:text-5xl">
           Welcome to Online Bank
         </h1>
-        <p className="mb-6 text-lg text-[var(--sea-ink-soft)]">
+        <p className="mb-6 text-lg text-(--sea-ink-soft)">
           Your one-stop banking dashboard. Log in to view accounts, transfer
           funds, or locate ATMs.
         </p>
         <a
           href="/login"
-          className="inline-block rounded-full bg-[var(--lagoon)] px-6 py-3 text-white shadow hover:bg-[var(--lagoon-deep)]"
+          className="inline-block rounded-full bg-(--lagoon) px-6 py-3 font-semibold shadow text-white! hover:bg-(--lagoon-deep) hover:text-white"
         >
           Sign In
         </a>

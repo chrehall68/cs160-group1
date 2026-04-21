@@ -278,7 +278,7 @@ function Transactions({ accountId }: { accountId: string }) {
             type="button"
             onClick={() => setPage((current) => Math.max(1, current - 1))}
             disabled={page === 1 || transactionsQuery.isFetching}
-            className="rounded border border-(--line) bg-white px-3 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded border border-(--line) bg-(--surface-strong) px-3 py-2 text-sm font-semibold text-(--sea-ink) hover:bg-(--link-bg-hover) disabled:cursor-not-allowed disabled:opacity-60"
           >
             Previous
           </button>
@@ -291,7 +291,7 @@ function Transactions({ accountId }: { accountId: string }) {
               setPage((current) => Math.min(numPages, current + 1))
             }
             disabled={page === numPages || transactionsQuery.isFetching}
-            className="rounded border border-(--line) bg-white px-3 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded border border-(--line) bg-(--surface-strong) px-3 py-2 text-sm font-semibold text-(--sea-ink) hover:bg-(--link-bg-hover) disabled:cursor-not-allowed disabled:opacity-60"
           >
             Next
           </button>
