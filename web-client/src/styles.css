@@ -5,6 +5,7 @@
 @theme {
   --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
 }
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
 
 :root {
   --sea-ink: #173a40;
@@ -58,6 +59,33 @@
     --popup-bg: rgb(25, 42, 45);
     --schedule-bg: rgba(29, 54, 58, 0.96);
   }
+}
+
+/* forced dark mode; duplicated from above */
+:root[data-theme="dark"] {
+  --sea-ink: #d7ece8;
+  --sea-ink-soft: #afcdc8;
+  --lagoon: #60d7cf;
+  --lagoon-deep: #8de5db;
+  --palm: #6ec89a;
+  --sand: #0f1a1e;
+  --foam: #101d22;
+  --surface: rgba(20, 36, 40, 0.94);
+  --surface-strong: rgba(24, 42, 46, 0.98);
+  --line: rgba(141, 229, 219, 0.14);
+  --inset-glint: rgba(255, 255, 255, 0.06);
+  --kicker: #b8efe5;
+  --bg-base: #071014;
+  --header-bg: rgba(7, 16, 20, 0.9);
+  --chip-bg: rgba(22, 40, 44, 0.96);
+  --chip-line: rgba(141, 229, 219, 0.14);
+  --link-bg-hover: rgba(24, 44, 49, 0.8);
+  --hero-a: rgba(96, 215, 207, 0.18);
+  --hero-b: rgba(110, 200, 154, 0.12);
+  --transfer-hover: rgba(191, 220, 205, 0.532);
+  --transfer-active: rgba(93, 121, 120, 0.402);
+  --popup-bg: rgb(25, 42, 45);
+  --schedule-bg: rgba(29, 54, 58, 0.96);
 }
 
 * {
