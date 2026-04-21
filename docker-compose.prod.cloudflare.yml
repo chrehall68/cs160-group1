@@ -1,17 +1,15 @@
+# single machine deployment for tunneled cloudflare deployment
+# 8099 is just a random port number
 services:
   frontend:
     build:
       context: ./web-client
-      dockerfile: Dockerfile.prod
+      dockerfile: Dockerfile.prod.cloudflare
     ports:
-      - "80:80"
-      - "443:443"
+      - "8099:80"
     environment:
       DOMAIN: ${DOMAIN:? "Missing DOMAIN env var"}
       NGINX_ENVSUBST_FILTER_VARIABLES: "^DOMAIN$$"
-    volumes:
-      - certbot_certs:/etc/letsencrypt
-      - certbot_www:/var/www/certbot
     command:
       - /bin/sh
       - -c
@@ -24,16 +22,6 @@ services:
         condition: service_healthy
       backend:
         condition: service_healthy
-    restart: unless-stopped
-
-  certbot:
-    image: certbot/certbot
-    volumes:
-      - certbot_certs:/etc/letsencrypt
-      - certbot_www:/var/www/certbot
-    entrypoint: >
-      /bin/sh -c "trap exit TERM; while :; do certbot renew --webroot -w
-      /var/www/certbot; sleep 12h & wait $${!}; done;"
     restart: unless-stopped
 
   backend:
@@ -72,8 +60,6 @@ services:
 
   database:
     image: postgres:17-alpine
-    ports:
-      - "5432:5432"
     environment:
       POSTGRES_USER: ${DB_USER:? "Missing DB_USER env var"}
       POSTGRES_PASSWORD: ${DB_PASSWORD:? "Missing DB_PASSWORD env var"}
@@ -87,8 +73,20 @@ services:
     volumes:
       - db_volume:/var/lib/postgresql/data
     restart: unless-stopped
+  tunneler:
+    image: cloudflare/cloudflared:latest
+    environment:
+      CLOUDFLARE_TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:? "Missing CLOUDFLARE_TUNNEL_TOKEN env var"}
+    command:
+      [
+        "tunnel",
+        "--no-autoupdate",
+        "run",
+        "--token",
+        "${CLOUDFLARE_TUNNEL_TOKEN}",
+        "--url",
+        "http://frontend:80",
+      ]
 
 volumes:
   db_volume:
-  certbot_certs:
-  certbot_www:
