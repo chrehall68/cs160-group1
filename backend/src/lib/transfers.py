@@ -4,7 +4,7 @@ from decimal import Decimal
 
 from sqlmodel import Session, select
 
-from constants import ROUTING_NUMBER
+from constants import ROUTING_NUMBER, MAX_BALANCE, BALANCE_OVERFLOW_MESSAGE
 from models import (
     Account,
     AccountStatus,
@@ -149,6 +149,9 @@ def process_transfer(
         if payee.status is not AccountStatus.ACTIVE:
             session.rollback()
             raise TransferException("Payee account is not active")
+        if payee.balance + amount > MAX_BALANCE:
+            session.rollback()
+            raise TransferException(BALANCE_OVERFLOW_MESSAGE)
         assert payee.account_id is not None
         payee.balance += amount
         transaction.accounts.append(payee)

@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session, func, select
 from models import ATM, OnlineDeposit, Transaction, TransactionToAccount
 from dependencies.db import get_engine
+import constants
 
 from tests.shared import create_account, login_admin, make_atm_address, register_user
 
@@ -108,6 +109,32 @@ def test_deposit_cash_updates_account_balance(client):
     account_response = client.get(f"/accounts/{account_id}")
     assert account_response.status_code == 200
     assert account_response.json()["balance"] == "125.50"
+
+
+def test_deposit_cash_rejects_balance_overflow(client):
+    register_user(client)
+    account_id = create_account(client)
+
+    fill_response = client.post(
+        "/deposit/cash",
+        json={
+            "account_id": account_id,
+            "cash_amount": "9999999999999999.00",
+            "atm_address": make_atm_address(),
+        },
+    )
+    assert fill_response.status_code == 200
+
+    overflow_response = client.post(
+        "/deposit/cash",
+        json={
+            "account_id": account_id,
+            "cash_amount": "1.00",
+            "atm_address": make_atm_address(),
+        },
+    )
+    assert overflow_response.status_code == 400
+    assert overflow_response.json() == {"detail": constants.BALANCE_OVERFLOW_MESSAGE}
 
 
 def test_withdraw_rejects_insufficient_funds(client):

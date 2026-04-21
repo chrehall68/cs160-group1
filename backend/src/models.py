@@ -189,6 +189,8 @@ class Account(SQLModel, table=True):
     account_type: AccountType = Field(max_length=10)
     status: AccountStatus = Field(default=AccountStatus.ACTIVE, max_length=6)
     # check that balance is >= 0
+    # WARNING: make sure to update constants.py's MAX_BALANCE
+    # if you change this
     balance: Decimal = Field(default=0.0, ge=0.0, decimal_places=2, max_digits=18)
     currency: str = Field(default="USD", max_length=3)
     created_at: datetime = Field(default_factory=utcnow)

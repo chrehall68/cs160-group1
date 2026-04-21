@@ -7,7 +7,7 @@ from dependencies.db import SessionDep
 from dependencies.auth import AuthDep
 from dependencies.admin import AdminDep
 from typing import Optional
-from constants import ROUTING_NUMBER
+from constants import ROUTING_NUMBER, MAX_BALANCE, BALANCE_OVERFLOW_MESSAGE
 import boto3
 from models import (
     Account,
@@ -346,6 +346,12 @@ def deposit_cash(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Account is not active"
             )
 
+        if account.balance + request.cash_amount > MAX_BALANCE:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=BALANCE_OVERFLOW_MESSAGE,
+            )
+
         # get or create ATM
         atm = get_or_create_atm(session, request.atm_address)
 
@@ -539,6 +545,12 @@ def deposit_check(
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Checks are not issued by Online Bank",
+            )
+
+        if account.balance + check_amount > MAX_BALANCE:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=BALANCE_OVERFLOW_MESSAGE,
             )
 
         # create transaction
