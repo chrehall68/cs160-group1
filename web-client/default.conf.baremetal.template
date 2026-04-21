@@ -1,3 +1,4 @@
+# for single-machine bare metal deployment
 server {
     listen 80;
     listen [::]:80;
@@ -22,6 +23,8 @@ server {
     ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
     include /etc/letsencrypt/options-ssl-nginx.conf;
     ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    client_max_body_size 100M;
 
     root /app/dist;
     index index.html;

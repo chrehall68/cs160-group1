@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { createPortal } from 'react-dom'
 
 type PopupProps = {
   title: string
@@ -27,16 +28,26 @@ export default function Popup({
     }
   }, [onClose])
 
-  return (
+  useEffect(() => {
+    const original = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = original
+    }
+  }, [])
+
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-lg bg-[var(--popup-bg)] p-6 shadow-md"
+        className="flex max-h-[90vh] w-full max-w-md flex-col overflow-hidden rounded-lg bg-(--popup-bg) shadow-md"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-4">
+        <div
+          className={`flex shrink-0 items-start justify-between gap-4 p-6 ${children ? 'pb-0' : ''}`}
+        >
           <div>
             <h3 className="text-lg font-semibold">{title}</h3>
             <p className="mt-2 text-sm text-(--sea-ink-soft)">{description}</p>
@@ -52,8 +63,11 @@ export default function Popup({
           </button>
         </div>
 
-        {children && <div className="mt-5">{children}</div>}
+        {children && (
+          <div className="overflow-y-auto px-6 pt-5 pb-6">{children}</div>
+        )}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

@@ -16,7 +16,6 @@ from models import (
     TransactionStatus,
     TransactionType,
     Transfer,
-    TransferDirection,
 )
 
 DELTAS = {
@@ -108,7 +107,7 @@ def process_transfer(
     account.balance -= amount
 
     transaction = Transaction(
-        account_id=from_account_id,
+        accounts=[account],
         transaction_type=TransactionType.TRANSFER,
         amount=amount,
         currency="USD",
@@ -125,7 +124,10 @@ def process_transfer(
     session.add(
         Transfer(
             transaction_id=transaction.transaction_id,
-            direction=TransferDirection.OUTGOING,
+            from_account_number=str(account.account_number),
+            from_routing_number=str(account.routing_number),
+            to_account_number=payee_account_number,
+            to_routing_number=payee_routing_number,
         )
     )
     session.add(
@@ -149,12 +151,8 @@ def process_transfer(
             raise TransferException("Payee account is not active")
         assert payee.account_id is not None
         payee.balance += amount
-        session.add(
-            Transfer(
-                transaction_id=transaction.transaction_id,
-                direction=TransferDirection.INCOMING,
-            )
-        )
+        transaction.accounts.append(payee)
+        session.add(transaction)
         session.add(
             LedgerEntry(
                 transaction_id=transaction.transaction_id,

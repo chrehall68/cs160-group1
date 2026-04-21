@@ -121,9 +121,23 @@ function SignUp() {
       >
         <h2 className="text-2xl font-bold">Create Account</h2>
 
-        {error && (
-          <div className="rounded bg-red-100 p-3 text-red-700">{error}</div>
-        )}
+        {error &&
+          (() => {
+            const lines = error.split('\n').filter((l) => l.trim().length > 0)
+            return (
+              <div className="rounded bg-red-100 p-3 text-red-700">
+                {lines.length > 1 ? (
+                  <ul className="list-inside list-disc space-y-1">
+                    {lines.map((line, i) => (
+                      <li key={i}>{line}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  error
+                )}
+              </div>
+            )
+          })()}
 
         <div className="border-t pt-6">
           <h3 className="mb-4 text-lg font-semibold">Login Information</h3>

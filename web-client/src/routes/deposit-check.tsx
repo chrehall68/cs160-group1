@@ -1,10 +1,12 @@
 import { DecimalInput, IntegerInput } from '@/components/Inputs'
-import { apiRequest, getErrorMessage } from '@/lib/api'
+import { apiRequest, getErrorMessage, isApiError } from '@/lib/api'
 import { isAdmin, isAuthenticated } from '@/lib/auth'
 import { fetchAccounts, queryKeys } from '@/lib/queries'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
+
+const UPLOAD_TOO_LARGE_MESSAGE = 'Upload too large. Please choose a smaller image.'
 
 export const Route = createFileRoute('/deposit-check')({
   beforeLoad: () => {
@@ -67,8 +69,8 @@ function DepositCheck() {
     setFormError('')
     setSuccess('')
 
-    const parsedAmount = parseFloat(amount)
-    if (!selectedAccountId || isNaN(parsedAmount) || parsedAmount <= 0) {
+    const amountNum = Number(amount)
+    if (!selectedAccountId || !amount || isNaN(amountNum) || amountNum <= 0) {
       setFormError('Please enter a valid account and amount.')
       return
     }
@@ -97,6 +99,12 @@ function DepositCheck() {
     } catch {}
   }
 
+  const mutationErrorMessage = depositMutation.isError
+    ? isApiError(depositMutation.error) && depositMutation.error.status === 413
+      ? UPLOAD_TOO_LARGE_MESSAGE
+      : getErrorMessage(depositMutation.error, 'Check deposit failed.')
+    : ''
+
   const error =
     formError ||
     (accountsQuery.isError &&
@@ -104,8 +112,7 @@ function DepositCheck() {
     (!selectedAccountId && !accountsQuery.isLoading
       ? 'Please create an account before making a deposit.'
       : '') ||
-    (depositMutation.isError &&
-      getErrorMessage(depositMutation.error, 'Check deposit failed.')) ||
+    mutationErrorMessage ||
     ''
 
   return (

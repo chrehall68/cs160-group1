@@ -49,8 +49,8 @@ export const queryKeys = {
     ['transactions', accountId] as const,
   transactions: (accountId: string, page: number, limit: number) =>
     ['transactions', accountId, page, limit] as const,
-  transactionDetail: (transactionId: number) =>
-    ['transaction-detail', transactionId] as const,
+  transactionDetail: (accountId: string, transactionId: number) =>
+    ['transaction-detail', accountId, transactionId] as const,
   atmSearch: (address: string) => ['atm-search', address] as const,
 }
 
@@ -96,9 +96,12 @@ export async function fetchTransactions(
   )
 }
 
-export async function fetchTransactionDetail(transactionId: number) {
+export async function fetchTransactionDetail(
+  accountId: string,
+  transactionId: number,
+) {
   return apiRequest<TransactionDetail>(
-    `/api/transactions/transaction/${transactionId}`,
+    `/api/transactions/${accountId}/${transactionId}`,
   )
 }
 

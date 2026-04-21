@@ -67,8 +67,8 @@ export default function TransferScreen() {
     if (!routing) return setError("Please enter a routing number.");
     if (routing.length !== 9)
       return setError("Routing number must be 9 digits.");
-    const parsedAmount = parseFloat(amount);
-    if (!amount || isNaN(parsedAmount) || parsedAmount <= 0)
+    const amountNum = Number(amount);
+    if (!amount || isNaN(amountNum) || amountNum <= 0)
       return setError("Please enter a valid amount.");
 
     setLoading(true);
@@ -79,7 +79,7 @@ export default function TransferScreen() {
           from_account_id: fromAccountId,
           to_account_number: account,
           to_routing_number: routing,
-          amount: parseFloat(amount),
+          amount: amount,
         }),
       });
 
@@ -140,7 +140,7 @@ export default function TransferScreen() {
                       selected && styles.accountBalanceSelected,
                     ]}
                   >
-                    ${parseFloat(acc.balance).toFixed(2)}
+                    ${Number(acc.balance).toFixed(2)}
                   </Text>
                 </TouchableOpacity>
               );

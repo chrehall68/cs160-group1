@@ -17,7 +17,8 @@ export function DecimalInput({
       inputMode="decimal"
       value={val}
       onChange={(e) => {
-        if (e.target.value.match('^\\d*(\\.\\d{0,2})?$')) setVal(e.target.value)
+        if (e.target.value.match('^\\d{0,17}(\\.\\d{0,2})?$'))
+          setVal(e.target.value)
       }}
       placeholder="0.00"
       className={clsx(className, 'mt-1 w-full rounded border px-3 py-2')}
@@ -45,7 +46,7 @@ export function IntegerInput({
       inputMode="numeric"
       value={val}
       onChange={(e) => {
-        if (e.target.value.match('^\\d*$')) setVal(e.target.value)
+        if (e.target.value.match('^\\d{0,17}$')) setVal(e.target.value)
       }}
       className={clsx(className, 'mt-1 w-full rounded border px-3 py-2')}
       placeholder={placeholder || '0'}

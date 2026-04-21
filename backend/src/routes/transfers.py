@@ -13,7 +13,6 @@ from models import (
     TransactionType,
     TransactionStatus,
     Transfer,
-    TransferDirection,
     LedgerEntry,
     LedgerType,
 )
@@ -34,6 +33,11 @@ from plaid.model.link_token_create_request import LinkTokenCreateRequest
 from plaid.model.ach_class import ACHClass
 from plaid.model.country_code import CountryCode
 from plaid.model.products import Products
+from plaid.model.item_public_token_exchange_request import (
+    ItemPublicTokenExchangeRequest,
+)
+from plaid.model.auth_get_request import AuthGetRequest
+from plaid.model.auth_get_response import AuthGetResponse
 from plaid.api import plaid_api
 import os
 import logging
@@ -274,11 +278,28 @@ def complete_external_transfer(
                 detail="Account does not belong to user",
             )
 
+        # exchange public token
+        # https://plaid.com/docs/api/items/#itempublic_tokenexchange
+        exchange_res = plaid_client.item_public_token_exchange(
+            ItemPublicTokenExchangeRequest(public_token=request.public_token)
+        )
+
+        # get the access token
+        access_token = exchange_res["access_token"]
+
+        # get the account info using the access token
+        # https://plaid.com/docs/api/products/auth/#authget
+        account_info: AuthGetResponse = plaid_client.auth_get(
+            AuthGetRequest(access_token=access_token)
+        )
+        from_account_num = account_info.numbers["ach"][0]["account"]
+        from_routing_num = account_info.numbers["ach"][0]["routing"]
+
         # and add transaction
         account.balance += potential_transfer.amount
         assert account.account_id
         transaction = Transaction(
-            account_id=account.account_id,
+            accounts=[account],
             amount=potential_transfer.amount,
             transaction_type=TransactionType.TRANSFER,
             status=TransactionStatus.COMPLETED,
@@ -291,7 +312,10 @@ def complete_external_transfer(
         session.add(
             Transfer(
                 transaction_id=transaction.transaction_id,
-                direction=TransferDirection.INCOMING,
+                to_account_number=str(account.account_number),
+                to_routing_number=str(account.routing_number),
+                from_account_number=from_account_num,
+                from_routing_number=from_routing_num,
             )
         )
         session.add(

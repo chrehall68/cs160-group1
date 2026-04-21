@@ -1,8 +1,12 @@
+# single machine deployment on bare metal
+# this assumes that you already have a DNS record for the domain
+# and have pointed it towards the machine running this compose file
+# it also requires that processes can bind to port 80 and 443
 services:
   frontend:
     build:
       context: ./web-client
-      dockerfile: Dockerfile.prod
+      dockerfile: Dockerfile.prod.baremetal
     ports:
       - "80:80"
       - "443:443"
@@ -72,8 +76,6 @@ services:
 
   database:
     image: postgres:17-alpine
-    ports:
-      - "5432:5432"
     environment:
       POSTGRES_USER: ${DB_USER:? "Missing DB_USER env var"}
       POSTGRES_PASSWORD: ${DB_PASSWORD:? "Missing DB_PASSWORD env var"}

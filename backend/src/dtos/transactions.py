@@ -34,6 +34,7 @@ class ExternalTransferInitiateRequest(BaseModel):
 
 class ExternalTransferCompleteRequest(BaseModel):
     transfer_intent_id: str
+    public_token: str
 
 
 class RecurringPaymentRequest(BaseModel):

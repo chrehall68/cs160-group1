@@ -1,0 +1,90 @@
+# single machine deployment for tunneled cloudflare deployment
+# 8099 is just a random port number for debugging
+services:
+  frontend:
+    build:
+      context: ./web-client
+      dockerfile: Dockerfile.prod.cloudflare
+    ports:
+      - "8099:80"
+    environment:
+      DOMAIN: ${DOMAIN:? "Missing DOMAIN env var"}
+      NGINX_ENVSUBST_FILTER_VARIABLES: "^DOMAIN$$"
+    command:
+      - /bin/sh
+      - -c
+      - |
+        /docker-entrypoint.d/20-envsubst-on-templates.sh
+        ( while :; do sleep 21600 && nginx -s reload; done ) &
+        exec nginx -g 'daemon off;'
+    depends_on:
+      database:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    environment:
+      DB_USER: ${DB_USER:? "Missing DB_USER env var"}
+      DB_PASSWORD: ${DB_PASSWORD:? "Missing DB_PASSWORD env var"}
+      DB_LOCATION: database
+      DB_NAME: postgres
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:? "Missing JWT_SECRET_KEY env var"}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:? "Missing GOOGLE_API_KEY env var"}
+      PLAID_CLIENT_ID: ${PLAID_CLIENT_ID:? "Missing PLAID_CLIENT_ID env var"}
+      PLAID_SECRET: ${PLAID_SECRET:? "Missing PLAID_SECRET env var"}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:? "Missing AWS_ACCESS_KEY_ID env var"}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:? "Missing AWS_SECRET_ACCESS_KEY env var"}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:? "Missing AWS_DEFAULT_REGION env var"}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET:? "Missing AWS_S3_BUCKET env var"}
+    depends_on:
+      database:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c 'import urllib.request,sys; sys.exit(0 if
+            urllib.request.urlopen(\"http://localhost:8000/healthz\").status ==
+            200 else 1)'",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  database:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${DB_USER:? "Missing DB_USER env var"}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:? "Missing DB_PASSWORD env var"}
+      POSTGRES_DB: postgres
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\"" ]
+      interval: 1m
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+    volumes:
+      - db_volume:/var/lib/postgresql/data
+    restart: unless-stopped
+  tunneler:
+    image: cloudflare/cloudflared:latest
+    environment:
+      CLOUDFLARE_TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:? "Missing CLOUDFLARE_TUNNEL_TOKEN env var"}
+    command:
+      [
+        "tunnel",
+        "--no-autoupdate",
+        "run",
+        "--token",
+        "${CLOUDFLARE_TUNNEL_TOKEN}",
+      ]
+
+volumes:
+  db_volume:

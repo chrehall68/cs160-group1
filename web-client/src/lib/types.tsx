@@ -20,7 +20,6 @@ type TransactionType = {
 type TransactionDetail = {
   transaction: {
     transaction_id: number
-    account_id: number
     transaction_type: string
     amount: number
     currency: string
@@ -51,6 +50,9 @@ type TransactionDetail = {
   transfer?: {
     transfer_id: number
     transaction_id: number
-    direction: string
+    from_routing_number: string
+    from_account_number: string
+    to_routing_number: string
+    to_account_number: string
   }
 }
