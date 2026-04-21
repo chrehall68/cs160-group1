@@ -282,35 +282,45 @@ function ExternalTransfer() {
     onSuccess,
     onExit: () => {
       setLoading(false)
+      setResponse(null)
     },
     token: response?.link_token || '',
   }
 
-  const { open, exit, ready } = usePlaidLink(plaidConfig)
-  if (response?.link_token && loading) {
-    open()
-  }
+  const { open, ready } = usePlaidLink(plaidConfig)
+  useEffect(() => {
+    if (ready && response?.link_token && loading) {
+      open()
+    }
+  }, [ready, response?.link_token, loading, open])
 
   const initiateTransfer = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     setLoading(true)
     setFormError('')
+    setSuccess('')
     if (!selectedAccountId) {
       setFormError('Please select an account.')
+      setLoading(false)
       return
     }
     if (!response) {
-      const data: any = await apiRequest('/api/transfer/external/initiate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          amount,
-          account_id: Number(selectedAccountId),
-        }),
-      })
-      setResponse(data)
+      try {
+        const data: any = await apiRequest('/api/transfer/external/initiate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            amount,
+            account_id: Number(selectedAccountId),
+          }),
+        })
+        setResponse(data)
+      } catch (error) {
+        setFormError(getErrorMessage(error, 'Error initiating transfer'))
+        setLoading(false)
+      }
     }
   }
 
