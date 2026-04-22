@@ -24,8 +24,7 @@ def process_recurring_payments():
         for payment in payments:
             try:
                 logger.info(
-                    "Executing recurring payment:",
-                    payment.recurring_payment_id,
+                    f"Executing recurring payment: {payment.recurring_payment_id}",
                 )
                 process_recurring_payment(payment, session)
 

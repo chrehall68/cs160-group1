@@ -58,6 +58,7 @@ def process_recurring_payment(payment: RecurringPayment, session: Session):
         )
     else:
         payment.completed_at = datetime.now(timezone.utc)
+    session.add(payment)
     session.commit()
 
 

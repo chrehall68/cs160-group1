@@ -3,13 +3,17 @@ import Popup from '@/components/Popup'
 import { apiRequest, getErrorMessage, isApiError } from '@/lib/api'
 import { clearAuthSession, isAuthenticated } from '@/lib/auth'
 import {
+  cancelRecurringPayment,
   fetchAccount,
+  fetchRecurringPaymentTransactions,
+  fetchRecurringPayments,
   fetchTransactionDetail,
   fetchTransactions,
   queryKeys,
 } from '@/lib/queries'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
+import clsx from 'clsx'
 import { useEffect, useState } from 'react'
 
 export const Route = createFileRoute('/accounts/$accountId')({
@@ -301,6 +305,283 @@ function Transactions({ accountId }: { accountId: string }) {
   )
 }
 
+const frequencyLabels: Record<RecurringPaymentType['frequency'], string> = {
+  once: 'One-time',
+  weekly: 'Weekly',
+  biweekly: 'Biweekly',
+  monthly: 'Monthly',
+}
+
+const statusStyles: Record<RecurringPaymentType['status'], string> = {
+  active: 'bg-green-100 text-green-800',
+  canceled: 'bg-gray-200 text-gray-700',
+  completed: 'bg-blue-100 text-blue-800',
+}
+
+function RecurringTransactions({
+  recurringPaymentId,
+}: {
+  recurringPaymentId: number
+}) {
+  const [page, setPage] = useState<number>(1)
+  const limit = 5
+  const query = useQuery({
+    queryKey: queryKeys.recurringPaymentTransactions(
+      recurringPaymentId,
+      page,
+      limit,
+    ),
+    queryFn: () =>
+      fetchRecurringPaymentTransactions(recurringPaymentId, page, limit),
+  })
+
+  if (query.isLoading) {
+    return (
+      <p className="text-sm text-(--sea-ink-soft)">Loading transactions...</p>
+    )
+  }
+  if (query.isError) {
+    return (
+      <p className="text-sm text-red-600">
+        {getErrorMessage(query.error, 'Unable to load transactions.')}
+      </p>
+    )
+  }
+  const txns = query.data?.transactions ?? []
+  const numPages = query.data?.total_pages ?? 1
+
+  if (txns.length === 0) {
+    return (
+      <p className="text-sm text-(--sea-ink-soft)">
+        No transactions yet for this recurring transfer.
+      </p>
+    )
+  }
+  return (
+    <div className="space-y-2">
+      <ul className="space-y-2">
+        {txns.map((t) => (
+          <li
+            key={t.transaction_id}
+            className="flex items-center justify-between rounded bg-(--surface) p-3 text-sm"
+          >
+            <span className="text-(--sea-ink-soft)">{t.created_at}</span>
+            <span
+              className={
+                t.ledger_type === 'credit' ? 'text-green-700' : 'text-red-700'
+              }
+            >
+              {t.ledger_type === 'credit' ? '+' : '-'}${t.amount}
+            </span>
+          </li>
+        ))}
+      </ul>
+      {numPages > 1 && (
+        <div className="flex items-center justify-end gap-3">
+          <button
+            type="button"
+            onClick={() => setPage((current) => Math.max(1, current - 1))}
+            disabled={page === 1 || query.isFetching}
+            className="rounded border border-(--line) bg-(--surface-strong) px-3 py-1 text-xs font-semibold text-(--sea-ink) hover:bg-(--link-bg-hover) disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Previous
+          </button>
+          <p className="text-xs text-(--sea-ink-soft)">
+            Page {page} of {numPages}
+          </p>
+          <button
+            type="button"
+            onClick={() =>
+              setPage((current) => Math.min(numPages, current + 1))
+            }
+            disabled={page === numPages || query.isFetching}
+            className="rounded border border-(--line) bg-(--surface-strong) px-3 py-1 text-xs font-semibold text-(--sea-ink) hover:bg-(--link-bg-hover) disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Next
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function RecurringPaymentRow({
+  payment,
+  accountId,
+  expanded,
+  onToggle,
+}: {
+  payment: RecurringPaymentType
+  accountId: string
+  expanded: boolean
+  onToggle: () => void
+}) {
+  const queryClient = useQueryClient()
+  const cancelMutation = useMutation({
+    mutationFn: () => cancelRecurringPayment(payment.recurring_payment_id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.recurringPaymentsRoot(accountId),
+      })
+    },
+  })
+
+  const cancelError = cancelMutation.isError
+    ? getErrorMessage(cancelMutation.error, 'Unable to cancel.')
+    : null
+
+  return (
+    <div className="rounded-lg bg-(--surface-strong) p-6 shadow-md">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center justify-between gap-4 text-left"
+      >
+        <div className="flex flex-col gap-1">
+          <p className="text-sm font-medium text-(--sea-ink)">
+            To {payment.payee_account_number} ·{' '}
+            {frequencyLabels[payment.frequency]}
+          </p>
+          <p className="text-(--sea-ink-soft) text-sm">
+            {payment.status === 'active'
+              ? `Next: ${payment.next_payment_date}`
+              : payment.status === 'completed'
+                ? `Completed ${payment.completed_at ?? ''}`
+                : `Canceled ${payment.canceled_at ?? ''}`}
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <span
+            className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${statusStyles[payment.status]}`}
+          >
+            {payment.status}
+          </span>
+          <span className="font-medium text-red-700">-${payment.amount}</span>
+        </div>
+      </button>
+
+      {expanded && (
+        <div className="mt-4 space-y-4 border-t border-(--line) pt-4">
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <span className="text-(--sea-ink-soft)">Payee Routing #</span>
+            <span className="text-right font-medium">
+              {payment.payee_routing_number}
+            </span>
+            <span className="text-(--sea-ink-soft)">Payee Account #</span>
+            <span className="text-right font-medium">
+              {payment.payee_account_number}
+            </span>
+            <span className="text-(--sea-ink-soft)">Amount</span>
+            <span className="text-right font-medium">${payment.amount}</span>
+            <span className="text-(--sea-ink-soft)">Frequency</span>
+            <span className="text-right font-medium">
+              {frequencyLabels[payment.frequency]}
+            </span>
+            <span className="text-(--sea-ink-soft)">Created</span>
+            <span className="text-right font-medium">{payment.created_at}</span>
+          </div>
+
+          <div className="space-y-2">
+            <h4 className="font-semibold">Transactions</h4>
+            <RecurringTransactions
+              recurringPaymentId={payment.recurring_payment_id}
+            />
+          </div>
+
+          {payment.status === 'active' && (
+            <div className="flex items-center justify-end gap-3">
+              {cancelError && (
+                <span className="text-sm text-red-600">{cancelError}</span>
+              )}
+              <button
+                type="button"
+                onClick={() => cancelMutation.mutate()}
+                disabled={cancelMutation.isPending}
+                className="rounded bg-red-600 px-4 py-2 font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {cancelMutation.isPending ? 'Canceling...' : 'Cancel'}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function RecurringPayments({ accountId }: { accountId: string }) {
+  const [page, setPage] = useState<number>(1)
+  const [expandedId, setExpandedId] = useState<number | null>(null)
+  const limit = 10
+  const query = useQuery({
+    queryKey: queryKeys.recurringPayments(accountId, page, limit),
+    queryFn: () => fetchRecurringPayments(accountId, page, limit),
+  })
+
+  useEffect(() => {
+    setPage(1)
+  }, [accountId])
+
+  const payments = query.data?.recurring_payments ?? []
+  const numPages = query.data?.total_pages ?? 1
+
+  return (
+    <div className="flex flex-col space-y-4">
+      {query.isLoading ? (
+        <p>Loading scheduled transfers...</p>
+      ) : query.isError ? (
+        <p className="text-sm text-red-600">
+          {getErrorMessage(query.error, 'Unable to load scheduled transfers.')}
+        </p>
+      ) : payments.length === 0 ? (
+        <p>No scheduled or recurring transfers.</p>
+      ) : (
+        payments.map((p) => (
+          <RecurringPaymentRow
+            key={p.recurring_payment_id}
+            payment={p}
+            accountId={accountId}
+            expanded={expandedId === p.recurring_payment_id}
+            onToggle={() =>
+              setExpandedId((curr) =>
+                curr === p.recurring_payment_id
+                  ? null
+                  : p.recurring_payment_id,
+              )
+            }
+          />
+        ))
+      )}
+
+      {numPages > 1 && (
+        <div className="flex items-center justify-end gap-3">
+          <button
+            type="button"
+            onClick={() => setPage((current) => Math.max(1, current - 1))}
+            disabled={page === 1 || query.isFetching}
+            className="rounded border border-(--line) bg-(--surface-strong) px-3 py-2 text-sm font-semibold text-(--sea-ink) hover:bg-(--link-bg-hover) disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Previous
+          </button>
+          <p className="text-sm text-(--sea-ink-soft)">
+            Page {page} of {numPages}
+          </p>
+          <button
+            type="button"
+            onClick={() =>
+              setPage((current) => Math.min(numPages, current + 1))
+            }
+            disabled={page === numPages || query.isFetching}
+            className="rounded border border-(--line) bg-(--surface-strong) px-3 py-2 text-sm font-semibold text-(--sea-ink) hover:bg-(--link-bg-hover) disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Next
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function AccountPage() {
   const router = useRouter()
   const queryClient = useQueryClient()
@@ -442,9 +723,45 @@ function AccountPage() {
         )}
       </section>
       <section className="space-y-6">
-        <h3 className="text-xl font-bold">Recent Transactions</h3>
-        <Transactions accountId={accountId} />
+        <HistoryTabs accountId={accountId} />
       </section>
     </main>
+  )
+}
+
+function HistoryTabs({ accountId }: { accountId: string }) {
+  const [showRecurring, setShowRecurring] = useState(false)
+  return (
+    <div className="space-y-6">
+      <h3 className="text-xl font-bold">Transaction History</h3>
+      <div className="flex w-full flex-row items-center justify-start text-sm font-medium">
+        <p className="pr-2">View:</p>
+        <button
+          type="button"
+          className={clsx(
+            'p-2 border-l-2 border-t-2 border-b-2 hover:bg-(--transfer-hover) active:bg-gray-300 hover:cursor-pointer',
+            !showRecurring && 'bg-(--transfer-active)',
+          )}
+          onClick={() => setShowRecurring(false)}
+        >
+          All Transactions
+        </button>
+        <button
+          type="button"
+          className={clsx(
+            'p-2 border-2 hover:bg-(--transfer-hover) active:bg-gray-300 hover:cursor-pointer',
+            showRecurring && 'bg-(--transfer-active)',
+          )}
+          onClick={() => setShowRecurring(true)}
+        >
+          Scheduled & Recurring
+        </button>
+      </div>
+      {showRecurring ? (
+        <RecurringPayments accountId={accountId} />
+      ) : (
+        <Transactions accountId={accountId} />
+      )}
+    </div>
   )
 }
