@@ -107,6 +107,23 @@ AWS_DEFAULT_REGION=<aws region, e.g. us-west-1>
 AWS_S3_BUCKET=<s3 bucket for check images>
 ```
 
+The following variables are optional and tune throughput under load.
+Defaults are applied when unset:
+
+```
+NUM_WORKERS=<number of uvicorn worker processes, default 4>
+POSTGRES_MAX_CONNECTIONS=<postgres max_connections, default 100>
+UPSTREAM_KEEPALIVE=<nginx→backend keepalive pool size, default 32>
+```
+
+- `NUM_WORKERS` controls how many FastAPI worker processes the backend
+  runs. Scale with available CPU cores.
+- `POSTGRES_MAX_CONNECTIONS` is passed to Postgres as `max_connections`.
+  Size it to cover every connection the backend workers may open
+  concurrently.
+- `UPSTREAM_KEEPALIVE` sets the size of nginx's idle keepalive pool to
+  the backend, reducing TCP churn for bursty traffic.
+
 ### Option 1: Bare-metal with Let's Encrypt
 
 Use [docker-compose.prod.baremetal.yml](docker-compose.prod.baremetal.yml)
@@ -158,6 +175,32 @@ docker compose -f docker-compose.prod.cloudflare.yml up -d --build
 ```
 
 The frontend is also exposed locally on port `8099` for debugging.
+
+### To Run Load Tests
+
+A [k6](https://k6.io/) script at [load-tests/script.js](load-tests/script.js)
+exercises the account-creation endpoint against a running deployment. It is
+useful for validating the tuning knobs above (`NUM_WORKERS`,
+`POSTGRES_MAX_CONNECTIONS`, `UPSTREAM_KEEPALIVE`) under realistic concurrency.
+
+Two env vars are required:
+
+```
+BASE_URL=<deployment base URL, e.g. https://bank.example.com>
+ACCESS_TOKEN=<access_token cookie from a logged-in session>
+```
+
+Obtain `ACCESS_TOKEN` by logging into the deployed frontend and copying the
+value of the `access_token` cookie from your browser's devtools.
+
+Then run k6 with the virtual-user count and duration of your choice:
+
+```bash
+BASE_URL=<...> ACCESS_TOKEN=<...> k6 run --vus 50 --duration 30s load-tests/script.js
+```
+
+The script reports `status_2xx`, `status_4xx`, and `status_5xx` counters
+alongside k6's built-in latency metrics.
 
 ### To Run Backend Integration Tests
 
