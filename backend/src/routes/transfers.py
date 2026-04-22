@@ -25,6 +25,7 @@ from dtos.transactions import (
     TransactionResponse,
 )
 from lib.transfers import process_transfer, TransferException
+from lib.utils import validate_pagination
 from constants import MAX_BALANCE, BALANCE_OVERFLOW_MESSAGE
 from datetime import date, datetime, timezone
 
@@ -221,14 +222,7 @@ def get_recurring_payments(
     - page (int): the 1-based page of results to fetch
     - limit (int): how many results to return per page
     """
-    if limit <= 0:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="limit must be positive"
-        )
-    if page <= 0:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="page must be positive"
-        )
+    validate_pagination(page, limit)
 
     account = session.get(Account, account_id)
     if not account:
@@ -323,14 +317,7 @@ def get_recurring_payment_transactions(
     - page (int): the 1-based page of results to fetch
     - limit (int): how many results to return per page
     """
-    if limit <= 0:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="limit must be positive"
-        )
-    if page <= 0:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="page must be positive"
-        )
+    validate_pagination(page, limit)
 
     payment = load_owned_recurring_payment(recurring_payment_id, session, user_info)
 

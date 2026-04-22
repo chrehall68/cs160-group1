@@ -446,7 +446,9 @@ def test_list_recurring_payments_includes_canceled_and_completed(client):
 
     response = client.get(f"/recurring/{account_id}")
     assert response.status_code == 200
-    by_id = {p["recurring_payment_id"]: p for p in response.json()["recurring_payments"]}
+    by_id = {
+        p["recurring_payment_id"]: p for p in response.json()["recurring_payments"]
+    }
     assert by_id[active_id]["status"] == "active"
     assert by_id[canceled_id]["status"] == "canceled"
     assert by_id[once_id]["status"] == "completed"
