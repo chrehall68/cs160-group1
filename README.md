@@ -108,8 +108,7 @@ AWS_S3_BUCKET=<s3 bucket for check images>
 ```
 
 The following variables are optional and tune throughput under load.
-Defaults are applied when unset (except `POSTGRES_MAX_CONNECTIONS` on
-bare-metal, which must be set explicitly):
+Defaults are applied when unset:
 
 ```
 NUM_WORKERS=<number of uvicorn worker processes, default 4>
