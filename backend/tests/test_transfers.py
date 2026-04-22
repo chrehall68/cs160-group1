@@ -4,7 +4,8 @@ from fastapi.testclient import TestClient
 from sqlmodel import select, Session
 
 from dependencies.db import get_engine
-from models import RecurringPayment
+from models import RecurringFrequency, RecurringPayment, Transfer
+from scheduler import process_recurring_payments
 from tests.shared import create_account, deposit_cash, get_account, register_user
 
 
@@ -331,3 +332,335 @@ def test_create_recurring_payment_rejects_negative_amount(client):
     assert (
         response.json()["detail"][0]["msg"] == "Value error, Amount must be nonnegative"
     )
+
+
+def _create_recurring(
+    client,
+    account_id: int,
+    amount: str = "5.00",
+    frequency: str = "weekly",
+    next_payment_date: str | None = None,
+    payee_account_number: str = "9999999999",
+    payee_routing_number: str = "111000111",
+) -> int:
+    response = client.post(
+        "/recurring",
+        json={
+            "from_account_id": account_id,
+            "payee_account_number": payee_account_number,
+            "payee_routing_number": payee_routing_number,
+            "amount": amount,
+            "frequency": frequency,
+            "next_payment_date": next_payment_date or _future_date(),
+        },
+    )
+    assert response.status_code == 200, response.text
+    with Session(get_engine()) as session:
+        row = session.exec(
+            select(RecurringPayment)
+            .where(RecurringPayment.from_account_id == account_id)
+            .order_by(-RecurringPayment.recurring_payment_id)  # type: ignore
+        ).first()
+        assert row is not None
+        return row.recurring_payment_id  # type: ignore
+
+
+def test_list_recurring_payments_returns_owned_payments(client):
+    register_user(client)
+    account_id = create_account(client)
+    recurring_id = _create_recurring(client, account_id, amount="7.25")
+
+    response = client.get(f"/recurring/{account_id}")
+    assert response.status_code == 200
+    body = response.json()
+    payload = body["recurring_payments"]
+    assert len(payload) == 1
+    assert payload[0]["recurring_payment_id"] == recurring_id
+    assert payload[0]["status"] == "active"
+    assert payload[0]["amount"] == "7.25"
+    assert body["total_pages"] == 1
+
+
+def test_list_recurring_payments_paginates(client):
+    register_user(client)
+    account_id = create_account(client)
+    ids = [_create_recurring(client, account_id, amount="1.00") for _ in range(5)]
+
+    first = client.get(f"/recurring/{account_id}?page=1&limit=2")
+    assert first.status_code == 200
+    first_body = first.json()
+    assert first_body["total_pages"] == 3
+    assert [p["recurring_payment_id"] for p in first_body["recurring_payments"]] == [
+        ids[-1],
+        ids[-2],
+    ]
+
+    third = client.get(f"/recurring/{account_id}?page=3&limit=2")
+    assert third.status_code == 200
+    third_body = third.json()
+    assert [p["recurring_payment_id"] for p in third_body["recurring_payments"]] == [
+        ids[0]
+    ]
+
+
+def test_list_recurring_payments_rejects_invalid_pagination(client):
+    register_user(client)
+    account_id = create_account(client)
+
+    assert client.get(f"/recurring/{account_id}?page=0").status_code == 400
+    assert client.get(f"/recurring/{account_id}?limit=0").status_code == 400
+
+
+def test_list_recurring_payments_rejects_other_users_account(client):
+    with TestClient(client.app, base_url="https://testserver") as owner_client:
+        register_user(owner_client)
+        account_id = create_account(owner_client)
+        _create_recurring(owner_client, account_id)
+
+    with TestClient(client.app, base_url="https://testserver") as other_client:
+        register_user(other_client)
+        response = other_client.get(f"/recurring/{account_id}")
+
+    assert response.status_code == 403
+
+
+def test_list_recurring_payments_includes_canceled_and_completed(client):
+    register_user(client)
+    account_id = create_account(client)
+    deposit_cash(client, account_id, "50.00")
+
+    active_id = _create_recurring(client, account_id, amount="1.00")
+    canceled_id = _create_recurring(client, account_id, amount="2.00")
+    once_id = _create_recurring(
+        client,
+        account_id,
+        amount="3.00",
+        frequency="once",
+        next_payment_date=date.today().isoformat(),
+    )
+
+    # cancel one
+    assert client.post(f"/recurring/{canceled_id}/cancel").status_code == 200
+    # fire scheduler to mark ONCE payment completed
+    process_recurring_payments()
+
+    response = client.get(f"/recurring/{account_id}")
+    assert response.status_code == 200
+    by_id = {p["recurring_payment_id"]: p for p in response.json()["recurring_payments"]}
+    assert by_id[active_id]["status"] == "active"
+    assert by_id[canceled_id]["status"] == "canceled"
+    assert by_id[once_id]["status"] == "completed"
+
+
+def test_cancel_recurring_payment_marks_canceled_and_skips_scheduler(client):
+    register_user(client)
+    account_id = create_account(client)
+    deposit_cash(client, account_id, "50.00")
+    recurring_id = _create_recurring(
+        client,
+        account_id,
+        amount="5.00",
+        frequency="weekly",
+        next_payment_date=date.today().isoformat(),
+    )
+
+    response = client.post(f"/recurring/{recurring_id}/cancel")
+    assert response.status_code == 200
+    assert response.json() == {"message": "Recurring payment canceled"}
+
+    # Running the scheduler should NOT execute the canceled payment.
+    process_recurring_payments()
+    assert get_account(client, account_id)["balance"] == "50.00"
+
+    with Session(get_engine()) as session:
+        row = session.get(RecurringPayment, recurring_id)
+        assert row is not None
+        assert row.canceled_at is not None
+
+
+def test_cancel_recurring_payment_rejects_already_canceled(client):
+    register_user(client)
+    account_id = create_account(client)
+    recurring_id = _create_recurring(client, account_id)
+
+    assert client.post(f"/recurring/{recurring_id}/cancel").status_code == 200
+    response = client.post(f"/recurring/{recurring_id}/cancel")
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Recurring payment is already canceled"}
+
+
+def test_cancel_recurring_payment_rejects_already_completed(client):
+    register_user(client)
+    account_id = create_account(client)
+    deposit_cash(client, account_id, "20.00")
+    recurring_id = _create_recurring(
+        client,
+        account_id,
+        amount="5.00",
+        frequency="once",
+        next_payment_date=date.today().isoformat(),
+    )
+    process_recurring_payments()
+
+    response = client.post(f"/recurring/{recurring_id}/cancel")
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Recurring payment is already completed"}
+
+
+def test_cancel_recurring_payment_rejects_other_user(client):
+    with TestClient(client.app, base_url="https://testserver") as owner_client:
+        register_user(owner_client)
+        account_id = create_account(owner_client)
+        recurring_id = _create_recurring(owner_client, account_id)
+
+    with TestClient(client.app, base_url="https://testserver") as other_client:
+        register_user(other_client)
+        response = other_client.post(f"/recurring/{recurring_id}/cancel")
+
+    assert response.status_code == 403
+
+
+def test_recurring_payment_transactions_are_empty_before_execution(client):
+    register_user(client)
+    account_id = create_account(client)
+    recurring_id = _create_recurring(client, account_id)
+
+    response = client.get(f"/recurring/{recurring_id}/transactions")
+    assert response.status_code == 200
+    assert response.json() == {"transactions": [], "total_pages": 0}
+
+
+def test_recurring_payment_transactions_lists_executed_transfers(client):
+    register_user(client)
+    account_id = create_account(client)
+    deposit_cash(client, account_id, "50.00")
+    recurring_id = _create_recurring(
+        client,
+        account_id,
+        amount="5.00",
+        frequency="weekly",
+        next_payment_date=date.today().isoformat(),
+    )
+
+    process_recurring_payments()
+
+    response = client.get(f"/recurring/{recurring_id}/transactions")
+    assert response.status_code == 200
+    body = response.json()
+    txns = body["transactions"]
+    assert len(txns) == 1
+    assert txns[0]["amount"] == "5.00"
+    assert txns[0]["ledger_type"] == "debit"
+    assert txns[0]["transaction_type"] == "transfer"
+    assert body["total_pages"] == 1
+
+
+def test_recurring_payment_transactions_paginates(client):
+    register_user(client)
+    account_id = create_account(client)
+    deposit_cash(client, account_id, "100.00")
+    recurring_id = _create_recurring(
+        client,
+        account_id,
+        amount="1.00",
+        frequency="weekly",
+        next_payment_date=date.today().isoformat(),
+    )
+
+    # fire the scheduler three times to rack up three executions
+    for _ in range(3):
+        process_recurring_payments()
+        # roll the date back so the next tick fires again
+        with Session(get_engine()) as session:
+            row = session.get(RecurringPayment, recurring_id)
+            assert row is not None
+            row.next_payment_date = date.today()
+            session.add(row)
+            session.commit()
+
+    first = client.get(f"/recurring/{recurring_id}/transactions?page=1&limit=2")
+    assert first.status_code == 200
+    first_body = first.json()
+    assert first_body["total_pages"] == 2
+    assert len(first_body["transactions"]) == 2
+
+    second = client.get(f"/recurring/{recurring_id}/transactions?page=2&limit=2")
+    assert second.status_code == 200
+    assert len(second.json()["transactions"]) == 1
+
+
+def test_recurring_payment_transactions_rejects_invalid_pagination(client):
+    register_user(client)
+    account_id = create_account(client)
+    recurring_id = _create_recurring(client, account_id)
+
+    assert (
+        client.get(f"/recurring/{recurring_id}/transactions?page=0").status_code == 400
+    )
+    assert (
+        client.get(f"/recurring/{recurring_id}/transactions?limit=0").status_code == 400
+    )
+
+
+def test_recurring_payment_transactions_rejects_other_user(client):
+    with TestClient(client.app, base_url="https://testserver") as owner_client:
+        register_user(owner_client)
+        account_id = create_account(owner_client)
+        recurring_id = _create_recurring(owner_client, account_id)
+
+    with TestClient(client.app, base_url="https://testserver") as other_client:
+        register_user(other_client)
+        response = other_client.get(f"/recurring/{recurring_id}/transactions")
+
+    assert response.status_code == 403
+
+
+def test_scheduler_advances_weekly_recurring_payment_and_links_transfer(client):
+    register_user(client)
+    account_id = create_account(client)
+    deposit_cash(client, account_id, "50.00")
+    recurring_id = _create_recurring(
+        client,
+        account_id,
+        amount="5.00",
+        frequency="weekly",
+        next_payment_date=date.today().isoformat(),
+    )
+
+    process_recurring_payments()
+
+    with Session(get_engine()) as session:
+        payment = session.get(RecurringPayment, recurring_id)
+        assert payment is not None
+        assert payment.next_payment_date == date.today() + timedelta(days=7)
+        assert payment.completed_at is None
+
+        transfer = session.exec(
+            select(Transfer).where(Transfer.recurring_payment_id == recurring_id)
+        ).one()
+        assert transfer.recurring_payment_id == recurring_id
+
+
+def test_scheduler_marks_once_recurring_payment_completed_preserves_row(client):
+    register_user(client)
+    account_id = create_account(client)
+    deposit_cash(client, account_id, "20.00")
+    recurring_id = _create_recurring(
+        client,
+        account_id,
+        amount="5.00",
+        frequency="once",
+        next_payment_date=date.today().isoformat(),
+    )
+
+    process_recurring_payments()
+
+    with Session(get_engine()) as session:
+        payment = session.get(RecurringPayment, recurring_id)
+        assert payment is not None, "ONCE recurring payment row should be preserved"
+        assert payment.completed_at is not None
+        assert payment.frequency == RecurringFrequency.ONCE
+
+    # second scheduler tick should NOT re-fire a completed payment
+    process_recurring_payments()
+    assert get_account(client, account_id)["balance"] == "15.00"
