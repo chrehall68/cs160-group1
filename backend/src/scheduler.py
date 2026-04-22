@@ -17,6 +17,7 @@ def process_recurring_payments():
             select(RecurringPayment).where(
                 RecurringPayment.next_payment_date <= date.today(),
                 RecurringPayment.canceled_at == None,
+                RecurringPayment.completed_at == None,
             )
         ).all()
 

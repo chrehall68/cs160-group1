@@ -283,8 +283,11 @@ class RecurringPayment(SQLModel, table=True):
     next_payment_date: date
     created_at: datetime = Field(default_factory=utcnow)
 
+    # fields that stop the recurring payment
     # will be None if the recurring payment is active, otherwise it will be the date it was canceled
     canceled_at: Optional[datetime] = Field(default=None)
+    # set when a ONCE payment has executed
+    completed_at: Optional[datetime] = Field(default=None)
 
 
 # for withdrawals (which always happen at an ATM)
@@ -362,6 +365,15 @@ class Transfer(SQLModel, table=True):
         ondelete="CASCADE",
     )
     transaction: Transaction = Relationship()
+    # set when this transfer was created by a recurring payment execution
+    recurring_payment_id: Optional[int] = Field(
+        default=None,
+        index=True,
+        foreign_key="recurringpayment.recurring_payment_id",
+        nullable=True,
+        sa_type=BigInteger,
+        ondelete="SET NULL",
+    )
     # actual info
     from_routing_number: str = Field(max_length=64)
     from_account_number: str = Field(max_length=64)

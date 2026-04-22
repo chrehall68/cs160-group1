@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+from typing import Optional
 
 from sqlmodel import Session, select
 
@@ -47,16 +48,16 @@ def process_recurring_payment(payment: RecurringPayment, session: Session):
         "Recurring Payment",
         session,
         commit=False,
+        recurring_payment_id=payment.recurring_payment_id,
     )
 
-    # then, update next payment date
+    # then, update status
     if payment.frequency != RecurringFrequency.ONCE:
         payment.next_payment_date = (
             payment.next_payment_date + DELTAS[payment.frequency]
         )
     else:
-        # it was a one time thing, remove it from the db
-        session.delete(payment)
+        payment.completed_at = datetime.now(timezone.utc)
     session.commit()
 
 
@@ -68,6 +69,7 @@ def process_transfer(
     description: str,
     session: Session,
     commit: bool = True,
+    recurring_payment_id: Optional[int] = None,
 ):
     """
     Process a transfer from an internal account
@@ -128,6 +130,7 @@ def process_transfer(
             from_routing_number=str(account.routing_number),
             to_account_number=payee_account_number,
             to_routing_number=payee_routing_number,
+            recurring_payment_id=recurring_payment_id,
         )
     )
     session.add(
