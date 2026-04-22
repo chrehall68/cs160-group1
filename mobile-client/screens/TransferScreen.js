@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Button,
@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { create, open } from "react-native-plaid-link-sdk";
+import { useFocusEffect } from "@react-navigation/native";
 import PageLayout from "../components/PageLayout";
 import { apiRequest } from "../lib/api";
 import { fetchAccounts } from "../lib/queries";
@@ -316,9 +317,11 @@ export default function TransferScreen() {
       .finally(() => setAccountsLoading(false));
   };
 
-  useEffect(() => {
-    loadAccounts();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      loadAccounts();
+    }, []),
+  );
 
   return (
     <PageLayout title="Transfer Money">
