@@ -1,5 +1,6 @@
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Literal, Optional
 
 from pydantic import BaseModel, field_validator
 
@@ -60,3 +61,18 @@ class TransactionResponse(BaseModel):
     amount: Decimal
     currency: str
     created_at: datetime
+
+
+class RecurringPaymentResponse(BaseModel):
+    recurring_payment_id: int
+    from_account_id: int
+    payee_account_number: str
+    payee_routing_number: str
+    amount: Decimal
+    currency: str
+    frequency: RecurringFrequency
+    next_payment_date: date
+    created_at: datetime
+    canceled_at: Optional[datetime]
+    completed_at: Optional[datetime]
+    status: Literal["active", "canceled", "completed"]

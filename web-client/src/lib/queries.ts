@@ -25,6 +25,16 @@ type TransactionsResponse = {
   total_pages: number
 }
 
+type RecurringPaymentsResponse = {
+  recurring_payments: RecurringPaymentType[]
+  total_pages: number
+}
+
+type RecurringTransactionsResponse = {
+  transactions: TransactionType[]
+  total_pages: number
+}
+
 type ATMGeocodeResponse = {
   results?: Array<{
     geometry: {
@@ -51,6 +61,21 @@ export const queryKeys = {
     ['transactions', accountId, page, limit] as const,
   transactionDetail: (accountId: string, transactionId: number) =>
     ['transaction-detail', accountId, transactionId] as const,
+  recurringPaymentsRoot: (accountId: string) =>
+    ['recurring-payments', accountId] as const,
+  recurringPayments: (accountId: string, page: number, limit: number) =>
+    ['recurring-payments', accountId, page, limit] as const,
+  recurringPaymentTransactions: (
+    recurringPaymentId: number,
+    page: number,
+    limit: number,
+  ) =>
+    [
+      'recurring-payment-transactions',
+      recurringPaymentId,
+      page,
+      limit,
+    ] as const,
   atmSearch: (address: string) => ['atm-search', address] as const,
 }
 
@@ -102,6 +127,41 @@ export async function fetchTransactionDetail(
 ) {
   return apiRequest<TransactionDetail>(
     `/api/transactions/${accountId}/${transactionId}`,
+  )
+}
+
+export async function fetchRecurringPayments(
+  accountId: string,
+  page: number,
+  limit: number,
+) {
+  const searchParams = new URLSearchParams({
+    page: String(page),
+    limit: String(limit),
+  })
+  return apiRequest<RecurringPaymentsResponse>(
+    `/api/recurring/${accountId}?${searchParams.toString()}`,
+  )
+}
+
+export async function fetchRecurringPaymentTransactions(
+  recurringPaymentId: number,
+  page: number,
+  limit: number,
+) {
+  const searchParams = new URLSearchParams({
+    page: String(page),
+    limit: String(limit),
+  })
+  return apiRequest<RecurringTransactionsResponse>(
+    `/api/recurring/${recurringPaymentId}/transactions?${searchParams.toString()}`,
+  )
+}
+
+export async function cancelRecurringPayment(recurringPaymentId: number) {
+  return apiRequest<{ message: string }>(
+    `/api/recurring/${recurringPaymentId}/cancel`,
+    { method: 'POST' },
   )
 }
 

@@ -21,6 +21,7 @@ from models import (
     Transfer,
 )
 from dtos.transactions import TransactionResponse
+from lib.utils import validate_pagination
 from typing import Optional
 from datetime import datetime
 import logging
@@ -56,14 +57,7 @@ def get_account_transactions(
     - page (int): the 1-based page of results to fetch
     - limit (int): how many results to return per page
     """
-    if limit <= 0:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="limit must be positive"
-        )
-    if page <= 0:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="page must be positive"
-        )
+    validate_pagination(page, limit)
 
     # verify account
     value_stmt = select(Account).where(Account.account_id == account_id)
@@ -145,16 +139,7 @@ def get_all_transactions(
     Requires admin authentication.
     """
     try:
-        if limit <= 0:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="limit must be positive",
-            )
-        if page <= 0:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="page must be positive",
-            )
+        validate_pagination(page, limit)
 
         start = parse_iso_datetime(start_date, "start_date") if start_date else None
         end = parse_iso_datetime(end_date, "end_date") if end_date else None

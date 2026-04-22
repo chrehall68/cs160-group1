@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, status
-from sqlmodel import select
+from sqlmodel import func, select
 
 from dependencies.db import SessionDep
 from dependencies.auth import AuthDep
@@ -21,10 +21,13 @@ from dtos.transactions import (
     ExternalTransferInitiateRequest,
     ExternalTransferCompleteRequest,
     RecurringPaymentRequest,
+    RecurringPaymentResponse,
+    TransactionResponse,
 )
 from lib.transfers import process_transfer, TransferException
+from lib.utils import validate_pagination
 from constants import MAX_BALANCE, BALANCE_OVERFLOW_MESSAGE
-from datetime import date
+from datetime import date, datetime, timezone
 
 # for external transfers
 import plaid
@@ -174,6 +177,186 @@ def create_recurring_payment(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create recurring payment",
         )
+
+
+def get_status(payment: RecurringPayment) -> str:
+    if payment.canceled_at is not None:
+        return "canceled"
+    if payment.completed_at is not None:
+        return "completed"
+    return "active"
+
+
+def load_owned_recurring_payment(
+    recurring_payment_id: int, session: SessionDep, user_info: AuthDep
+) -> RecurringPayment:
+    """Fetch a recurring payment and verify it belongs to the current user."""
+    payment = session.get(RecurringPayment, recurring_payment_id)
+    if not payment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Recurring payment not found",
+        )
+    account = session.get(Account, payment.from_account_id)
+    user = session.get(User, user_info.user_id)
+    if not user or not account or account.customer_id != user.customer_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Recurring payment does not belong to user",
+        )
+    return payment
+
+
+@router.get("/recurring/{account_id}")
+def get_recurring_payments(
+    account_id: int,
+    session: SessionDep,
+    user_info: AuthDep,
+    page: int = 1,
+    limit: int = 10,
+):
+    """
+    List recurring/scheduled payments (active, canceled, and completed) for an account.
+
+    Query Parameters:
+    - page (int): the 1-based page of results to fetch
+    - limit (int): how many results to return per page
+    """
+    validate_pagination(page, limit)
+
+    account = session.get(Account, account_id)
+    if not account:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Account not found",
+        )
+
+    user = session.get(User, user_info.user_id)
+    if not user or account.customer_id != user.customer_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account does not belong to user",
+        )
+
+    offset = (page - 1) * limit
+    value_stmt = (
+        select(RecurringPayment)
+        .where(RecurringPayment.from_account_id == account_id)
+        .order_by(-RecurringPayment.recurring_payment_id)  # type: ignore
+        .offset(offset)
+        .limit(limit)
+    )
+    count_stmt = (
+        select(func.count("*"))
+        .select_from(RecurringPayment)
+        .where(RecurringPayment.from_account_id == account_id)
+    )
+    payments = session.exec(value_stmt).all()
+    total = session.exec(count_stmt).one()
+    total_pages = (total + limit - 1) // limit
+
+    return {
+        "recurring_payments": [
+            RecurringPaymentResponse(
+                recurring_payment_id=p.recurring_payment_id,  # type: ignore
+                from_account_id=p.from_account_id,
+                payee_account_number=p.payee_account_number,
+                payee_routing_number=p.payee_routing_number,
+                amount=p.amount,
+                currency=p.currency,
+                frequency=p.frequency,
+                next_payment_date=p.next_payment_date,
+                created_at=p.created_at,
+                canceled_at=p.canceled_at,
+                completed_at=p.completed_at,
+                status=get_status(p),  # type: ignore
+            )
+            for p in payments
+        ],
+        "total_pages": total_pages,
+    }
+
+
+@router.post("/recurring/{recurring_payment_id}/cancel")
+def cancel_recurring_payment(
+    recurring_payment_id: int, session: SessionDep, user_info: AuthDep
+):
+    """Cancel an active recurring/scheduled payment."""
+    payment = load_owned_recurring_payment(recurring_payment_id, session, user_info)
+
+    if payment.canceled_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Recurring payment is already canceled",
+        )
+    if payment.completed_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Recurring payment is already completed",
+        )
+
+    payment.canceled_at = datetime.now(timezone.utc)
+    session.add(payment)
+    session.commit()
+
+    return {"message": "Recurring payment canceled"}
+
+
+@router.get("/recurring/{recurring_payment_id}/transactions")
+def get_recurring_payment_transactions(
+    recurring_payment_id: int,
+    session: SessionDep,
+    user_info: AuthDep,
+    page: int = 1,
+    limit: int = 10,
+):
+    """
+    List transactions produced by a recurring/scheduled payment.
+
+    Query Parameters:
+    - page (int): the 1-based page of results to fetch
+    - limit (int): how many results to return per page
+    """
+    validate_pagination(page, limit)
+
+    payment = load_owned_recurring_payment(recurring_payment_id, session, user_info)
+
+    offset = (page - 1) * limit
+    value_stmt = (
+        select(LedgerEntry, Transaction)
+        .join(Transaction, LedgerEntry.transaction_id == Transaction.transaction_id)  # type: ignore
+        .join(Transfer, Transfer.transaction_id == Transaction.transaction_id)  # type: ignore
+        .where(Transfer.recurring_payment_id == recurring_payment_id)
+        .where(LedgerEntry.account_id == payment.from_account_id)
+        .order_by(-Transaction.transaction_id)  # type: ignore
+        .offset(offset)
+        .limit(limit)
+    )
+    count_stmt = (
+        select(func.count("*"))
+        .select_from(LedgerEntry)
+        .join(Transfer, Transfer.transaction_id == LedgerEntry.transaction_id)  # type: ignore
+        .where(Transfer.recurring_payment_id == recurring_payment_id)
+        .where(LedgerEntry.account_id == payment.from_account_id)
+    )
+    rows = session.exec(value_stmt).all()
+    total = session.exec(count_stmt).one()
+    total_pages = (total + limit - 1) // limit
+
+    return {
+        "transactions": [
+            TransactionResponse(
+                transaction_id=txn.transaction_id,  # type: ignore
+                ledger_type=ledger.type,
+                transaction_type=txn.transaction_type,
+                amount=txn.amount,
+                currency=txn.currency,
+                created_at=txn.created_at,
+            )
+            for ledger, txn in rows
+        ],
+        "total_pages": total_pages,
+    }
 
 
 @router.post("/transfer/external/initiate")

@@ -53,7 +53,7 @@ function InternalTransfer() {
     setToAccount('')
     setRoutingNumber('')
     setAmount('')
-    setFrequency('')
+    setFrequency('weekly')
     setStartDate('')
     setIsRecurring(false)
     await queryClient.invalidateQueries({ queryKey: queryKeys.accounts })

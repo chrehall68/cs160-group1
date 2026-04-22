@@ -12,7 +12,7 @@ from dependencies.auth import (
     create_access_token,
 )
 from datetime import datetime, timezone
-from lib.utils import get_or_create_address
+from lib.utils import get_or_create_address, validate_pagination
 import logging
 
 logger = logging.getLogger("uvicorn.error")
@@ -301,16 +301,7 @@ def get_all_users(
     Requires admin authentication.
     """
     try:
-        if limit <= 0:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="limit must be positive",
-            )
-        if page <= 0:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="page must be positive",
-            )
+        validate_pagination(page, limit)
 
         query = select(User)
         count_query = select(func.count()).select_from(User)
@@ -374,16 +365,7 @@ def get_all_customers(
     Requires admin authentication.
     """
     try:
-        if limit <= 0:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="limit must be positive",
-            )
-        if page <= 0:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="page must be positive",
-            )
+        validate_pagination(page, limit)
 
         query = select(Customer)
         count_query = select(func.count()).select_from(Customer)

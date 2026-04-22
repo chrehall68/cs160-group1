@@ -56,3 +56,20 @@ type TransactionDetail = {
     to_account_number: string
   }
 }
+
+type RecurringFrequency = 'once' | 'weekly' | 'biweekly' | 'monthly'
+
+type RecurringPaymentType = {
+  recurring_payment_id: number
+  from_account_id: number
+  payee_account_number: string
+  payee_routing_number: string
+  amount: string
+  currency: string
+  frequency: RecurringFrequency
+  next_payment_date: string
+  created_at: string
+  canceled_at: string | null
+  completed_at: string | null
+  status: 'active' | 'canceled' | 'completed'
+}

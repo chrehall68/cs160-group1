@@ -26,7 +26,7 @@ from models import (
     DepositType,
     User,
 )
-from lib.utils import get_or_create_address
+from lib.utils import get_or_create_address, validate_pagination
 from dtos.accounts import (
     CreateAccountRequest,
     CashDepositRequest,
@@ -233,16 +233,7 @@ def get_all_accounts_admin(
     Requires admin authentication.
     """
     try:
-        if limit <= 0:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="limit must be positive",
-            )
-        if page <= 0:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="page must be positive",
-            )
+        validate_pagination(page, limit)
 
         query = select(Account)
         count_query = select(func.count()).select_from(Account)

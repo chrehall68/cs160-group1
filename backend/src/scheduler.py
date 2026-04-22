@@ -17,14 +17,14 @@ def process_recurring_payments():
             select(RecurringPayment).where(
                 RecurringPayment.next_payment_date <= date.today(),
                 RecurringPayment.canceled_at == None,
+                RecurringPayment.completed_at == None,
             )
         ).all()
 
         for payment in payments:
             try:
                 logger.info(
-                    "Executing recurring payment:",
-                    payment.recurring_payment_id,
+                    f"Executing recurring payment: {payment.recurring_payment_id}",
                 )
                 process_recurring_payment(payment, session)
 
