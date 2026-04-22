@@ -2,12 +2,14 @@ import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Button,
+  Platform,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import { create, open } from "react-native-plaid-link-sdk";
 import PageLayout from "../components/PageLayout";
 import { apiRequest } from "../lib/api";
 import { fetchAccounts } from "../lib/queries";
@@ -25,37 +27,66 @@ function decimalOnly(val) {
   return cleaned;
 }
 
-// ─── SCREEN ──────────────────────────────────────────────────────────────────
-export default function TransferScreen() {
-  const [accounts, setAccounts] = useState([]);
+// ─── ACCOUNT PICKER ──────────────────────────────────────────────────────────
+function AccountPicker({ accounts, selectedId, onSelect }) {
+  return (
+    <View style={styles.pickerRow}>
+      {accounts.map((acc) => {
+        const selected = acc.account_id === selectedId;
+        return (
+          <TouchableOpacity
+            key={acc.account_id}
+            style={[styles.accountCard, selected && styles.accountCardSelected]}
+            onPress={() => onSelect(acc.account_id)}
+            activeOpacity={0.75}
+          >
+            <Text
+              style={[
+                styles.accountType,
+                selected && styles.accountTypeSelected,
+              ]}
+            >
+              {acc.account_type}
+            </Text>
+            <Text
+              style={[
+                styles.accountNumber,
+                selected && styles.accountNumberSelected,
+              ]}
+            >
+              ••••{acc.account_number.slice(-4)}
+            </Text>
+            <Text
+              style={[
+                styles.accountBalance,
+                selected && styles.accountBalanceSelected,
+              ]}
+            >
+              ${Number(acc.balance).toFixed(2)}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+}
+
+// ─── INTERNAL TRANSFER ───────────────────────────────────────────────────────
+function InternalTransfer({ accounts, accountsLoading, reloadAccounts }) {
   const [fromAccountId, setFromAccountId] = useState(null);
   const [account, setAccount] = useState("");
   const [routing, setRouting] = useState("");
   const [amount, setAmount] = useState("");
 
   const [loading, setLoading] = useState(false);
-  const [accountsLoading, setAccountsLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  // fetch accounts on mount
   useEffect(() => {
-    fetchAccounts()
-      .then((data) => {
-        console.log("accounts data:", JSON.stringify(data));
-        if (data.length === 0) {
-          setError("You need an account to make a transfer.");
-        } else {
-          setAccounts(data);
-          setFromAccountId(data[0].account_id);
-        }
-      })
-      .catch((err) => {
-        console.log("accounts error:", err.message);
-        setError("Could not load your accounts.");
-      })
-      .finally(() => setAccountsLoading(false));
-  }, []);
+    if (!fromAccountId && accounts.length) {
+      setFromAccountId(accounts[0].account_id);
+    }
+  }, [accounts, fromAccountId]);
 
   const handleSubmit = async () => {
     setError("");
@@ -87,9 +118,7 @@ export default function TransferScreen() {
       setAccount("");
       setRouting("");
       setAmount("");
-      fetchAccounts().then((data) => {
-        setAccounts(data);
-      });
+      reloadAccounts();
     } catch (e) {
       setError(e.message || "Something went wrong.");
     } finally {
@@ -98,94 +127,257 @@ export default function TransferScreen() {
   };
 
   return (
+    <>
+      <Text style={styles.label}>From Account</Text>
+      {accountsLoading ? (
+        <ActivityIndicator color="#007AFF" style={{ marginBottom: 15 }} />
+      ) : (
+        <AccountPicker
+          accounts={accounts}
+          selectedId={fromAccountId}
+          onSelect={setFromAccountId}
+        />
+      )}
+
+      <Text style={styles.label}>To Account Number</Text>
+      <TextInput
+        placeholder="Enter account number"
+        value={account}
+        onChangeText={(v) => setAccount(digitsOnly(v))}
+        style={styles.input}
+        keyboardType="number-pad"
+      />
+
+      <Text style={styles.label}>Routing Number</Text>
+      <TextInput
+        placeholder="9-digit routing number"
+        value={routing}
+        onChangeText={(v) => setRouting(digitsOnly(v))}
+        style={styles.input}
+        keyboardType="number-pad"
+        maxLength={9}
+      />
+
+      <Text style={styles.label}>Amount</Text>
+      <TextInput
+        placeholder="0.00"
+        value={amount}
+        onChangeText={(v) => setAmount(decimalOnly(v))}
+        style={styles.input}
+        keyboardType="decimal-pad"
+      />
+
+      {!!error && <Text style={styles.errorText}>{error}</Text>}
+      {!!success && <Text style={styles.successText}>{success}</Text>}
+
+      {loading ? (
+        <ActivityIndicator color="#007AFF" />
+      ) : (
+        <Button title="Submit Transfer" onPress={handleSubmit} />
+      )}
+    </>
+  );
+}
+
+// ─── EXTERNAL TRANSFER ───────────────────────────────────────────────────────
+function ExternalTransfer({ accounts, accountsLoading, reloadAccounts }) {
+  const [destAccountId, setDestAccountId] = useState(null);
+  const [amount, setAmount] = useState("");
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  useEffect(() => {
+    if (!destAccountId && accounts.length) {
+      setDestAccountId(accounts[0].account_id);
+    }
+  }, [accounts, destAccountId]);
+
+  const completeTransfer = async (transferIntentId, publicToken) => {
+    try {
+      const data = await apiRequest(`/transfer/external/complete`, {
+        method: "POST",
+        body: JSON.stringify({
+          transfer_intent_id: transferIntentId,
+          public_token: publicToken,
+        }),
+      });
+      setSuccess(data?.message || "Transfer submitted successfully!");
+      setAmount("");
+      reloadAccounts();
+    } catch (e) {
+      setError(e.message || "Error completing transfer.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = async () => {
+    setError("");
+    setSuccess("");
+
+    if (!destAccountId) return setError("Please select a destination account.");
+    const amountNum = Number(amount);
+    if (!amount || isNaN(amountNum) || amountNum <= 0)
+      return setError("Please enter a valid amount.");
+
+    setLoading(true);
+    let initResponse;
+    try {
+      initResponse = await apiRequest(`/transfer/external/initiate`, {
+        method: "POST",
+        body: JSON.stringify({
+          amount: amount,
+          account_id: destAccountId,
+          android_package_name:
+            Platform.OS === "android"
+              ? "com.cs160.group1.mobileclient"
+              : undefined,
+        }),
+      });
+    } catch (e) {
+      setError(e.message || "Error initiating transfer.");
+      setLoading(false);
+      return;
+    }
+
+    const { link_token, transfer_intent_id } = initResponse;
+    create({ token: link_token });
+    open({
+      onSuccess: (success) => {
+        completeTransfer(transfer_intent_id, success.publicToken);
+      },
+      onExit: (exit) => {
+        setLoading(false);
+        if (exit?.error?.displayMessage || exit?.error?.errorMessage) {
+          setError(exit.error.displayMessage || exit.error.errorMessage);
+        }
+      },
+    });
+  };
+
+  return (
+    <>
+      <Text style={styles.label}>Destination Account</Text>
+      {accountsLoading ? (
+        <ActivityIndicator color="#007AFF" style={{ marginBottom: 15 }} />
+      ) : (
+        <AccountPicker
+          accounts={accounts}
+          selectedId={destAccountId}
+          onSelect={setDestAccountId}
+        />
+      )}
+
+      <Text style={styles.label}>Amount</Text>
+      <TextInput
+        placeholder="0.00"
+        value={amount}
+        onChangeText={(v) => setAmount(decimalOnly(v))}
+        style={styles.input}
+        keyboardType="decimal-pad"
+      />
+
+      {!!error && <Text style={styles.errorText}>{error}</Text>}
+      {!!success && <Text style={styles.successText}>{success}</Text>}
+
+      {loading ? (
+        <ActivityIndicator color="#007AFF" />
+      ) : (
+        <Button title="Begin External Transfer" onPress={handleSubmit} />
+      )}
+    </>
+  );
+}
+
+// ─── SCREEN ──────────────────────────────────────────────────────────────────
+export default function TransferScreen() {
+  const [accounts, setAccounts] = useState([]);
+  const [accountsLoading, setAccountsLoading] = useState(true);
+  const [accountsError, setAccountsError] = useState("");
+  const [internal, setInternal] = useState(true);
+
+  const loadAccounts = () => {
+    setAccountsLoading(true);
+    fetchAccounts()
+      .then((data) => {
+        if (data.length === 0) {
+          setAccountsError("You need an account to make a transfer.");
+        } else {
+          setAccounts(data);
+          setAccountsError("");
+        }
+      })
+      .catch((err) => {
+        console.log("accounts error:", err.message);
+        setAccountsError("Could not load your accounts.");
+      })
+      .finally(() => setAccountsLoading(false));
+  };
+
+  useEffect(() => {
+    loadAccounts();
+  }, []);
+
+  return (
     <PageLayout title="Transfer Money">
       <View style={styles.card}>
-        {/* From account picker */}
-        <Text style={styles.label}>From Account</Text>
-        {accountsLoading ? (
-          <ActivityIndicator color="#007AFF" style={{ marginBottom: 15 }} />
-        ) : (
-          <View style={styles.pickerRow}>
-            {accounts.map((acc) => {
-              const selected = acc.account_id === fromAccountId;
-              return (
-                <TouchableOpacity
-                  key={acc.account_id}
-                  style={[
-                    styles.accountCard,
-                    selected && styles.accountCardSelected,
-                  ]}
-                  onPress={() => setFromAccountId(acc.account_id)}
-                  activeOpacity={0.75}
-                >
-                  <Text
-                    style={[
-                      styles.accountType,
-                      selected && styles.accountTypeSelected,
-                    ]}
-                  >
-                    {acc.account_type}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.accountNumber,
-                      selected && styles.accountNumberSelected,
-                    ]}
-                  >
-                    ••••{acc.account_number.slice(-4)}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.accountBalance,
-                      selected && styles.accountBalanceSelected,
-                    ]}
-                  >
-                    ${Number(acc.balance).toFixed(2)}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+        <View style={styles.toggleRow}>
+          <TouchableOpacity
+            style={[
+              styles.toggleBtn,
+              styles.toggleBtnLeft,
+              internal && styles.toggleBtnActive,
+            ]}
+            onPress={() => setInternal(true)}
+            activeOpacity={0.75}
+          >
+            <Text
+              style={[
+                styles.toggleText,
+                internal && styles.toggleTextActive,
+              ]}
+            >
+              Internal
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.toggleBtn,
+              styles.toggleBtnRight,
+              !internal && styles.toggleBtnActive,
+            ]}
+            onPress={() => setInternal(false)}
+            activeOpacity={0.75}
+          >
+            <Text
+              style={[
+                styles.toggleText,
+                !internal && styles.toggleTextActive,
+              ]}
+            >
+              External
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {!!accountsError && (
+          <Text style={styles.errorText}>{accountsError}</Text>
         )}
 
-        {/* To account number */}
-        <Text style={styles.label}>To Account Number</Text>
-        <TextInput
-          placeholder="Enter account number"
-          value={account}
-          onChangeText={(v) => setAccount(digitsOnly(v))}
-          style={styles.input}
-          keyboardType="number-pad"
-        />
-
-        {/* Routing number */}
-        <Text style={styles.label}>Routing Number</Text>
-        <TextInput
-          placeholder="9-digit routing number"
-          value={routing}
-          onChangeText={(v) => setRouting(digitsOnly(v))}
-          style={styles.input}
-          keyboardType="number-pad"
-          maxLength={9}
-        />
-
-        {/* Amount */}
-        <Text style={styles.label}>Amount</Text>
-        <TextInput
-          placeholder="0.00"
-          value={amount}
-          onChangeText={(v) => setAmount(decimalOnly(v))}
-          style={styles.input}
-          keyboardType="decimal-pad"
-        />
-
-        {!!error && <Text style={styles.errorText}>{error}</Text>}
-        {!!success && <Text style={styles.successText}>{success}</Text>}
-
-        {loading ? (
-          <ActivityIndicator color="#007AFF" />
+        {internal ? (
+          <InternalTransfer
+            accounts={accounts}
+            accountsLoading={accountsLoading}
+            reloadAccounts={loadAccounts}
+          />
         ) : (
-          <Button title="Submit Transfer" onPress={handleSubmit} />
+          <ExternalTransfer
+            accounts={accounts}
+            accountsLoading={accountsLoading}
+            reloadAccounts={loadAccounts}
+          />
         )}
       </View>
     </PageLayout>
@@ -218,6 +410,41 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     borderRadius: 6,
     fontSize: 16,
+  },
+
+  // toggle
+  toggleRow: {
+    flexDirection: "row",
+    marginBottom: 8,
+  },
+  toggleBtn: {
+    flex: 1,
+    padding: 10,
+    borderWidth: 1.5,
+    borderColor: "#ccc",
+    alignItems: "center",
+    backgroundColor: "#f9f9f9",
+  },
+  toggleBtnLeft: {
+    borderTopLeftRadius: 8,
+    borderBottomLeftRadius: 8,
+  },
+  toggleBtnRight: {
+    borderTopRightRadius: 8,
+    borderBottomRightRadius: 8,
+    borderLeftWidth: 0,
+  },
+  toggleBtnActive: {
+    borderColor: "#007AFF",
+    backgroundColor: "#EEF4FF",
+  },
+  toggleText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#6B7A99",
+  },
+  toggleTextActive: {
+    color: "#007AFF",
   },
 
   // account picker
