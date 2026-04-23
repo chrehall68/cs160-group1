@@ -404,19 +404,22 @@ def initiate_external_transfer(
             )
         )
         logger.info(transfer_intent)
+        link_token_kwargs = dict(
+            language="en",
+            country_codes=[CountryCode("US")],
+            user={
+                "legal_name": f"{customer.first_name} {customer.last_name}",
+                "client_user_id": str(user.user_id),
+            },
+            products=[Products("transfer")],
+            transfer={"intent_id": transfer_intent["transfer_intent"]["id"]},
+            link_customization_name="transfer_customization",
+            client_name="Online Bank",
+        )
+        if request.android_package_name:
+            link_token_kwargs["android_package_name"] = request.android_package_name
         link_res = plaid_client.link_token_create(
-            LinkTokenCreateRequest(
-                language="en",
-                country_codes=[CountryCode("US")],
-                user={
-                    "legal_name": f"{customer.first_name} {customer.last_name}",
-                    "client_user_id": str(user.user_id),
-                },
-                products=[Products("transfer")],
-                transfer={"intent_id": transfer_intent["transfer_intent"]["id"]},
-                link_customization_name="transfer_customization",
-                client_name="Online Bank",
-            )
+            LinkTokenCreateRequest(**link_token_kwargs)
         )
         logger.info(link_res)
         session.add(

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Button,
@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect } from "@react-navigation/native";
 import PageLayout from "../components/PageLayout";
 import { fetchAccounts } from "../lib/queries";
 
@@ -41,19 +42,22 @@ export default function DepositCheckScreen() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  useEffect(() => {
-    fetchAccounts()
-      .then((data) => {
-        if (data.length === 0) {
-          setError("You need an account to deposit a check.");
-        } else {
-          setAccounts(data);
-          setSelectedAccountId(data[0].account_id);
-        }
-      })
-      .catch(() => setError("Could not load your accounts."))
-      .finally(() => setAccountsLoading(false));
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      setAccountsLoading(true);
+      fetchAccounts()
+        .then((data) => {
+          if (data.length === 0) {
+            setError("You need an account to deposit a check.");
+          } else {
+            setAccounts(data);
+            setSelectedAccountId((prev) => prev ?? data[0].account_id);
+          }
+        })
+        .catch(() => setError("Could not load your accounts."))
+        .finally(() => setAccountsLoading(false));
+    }, []),
+  );
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({

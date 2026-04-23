@@ -24,6 +24,7 @@ class InternalTransferRequest(BaseModel):
 class ExternalTransferInitiateRequest(BaseModel):
     account_id: int
     amount: Decimal
+    android_package_name: str | None = None
 
     @field_validator("amount")
     @classmethod

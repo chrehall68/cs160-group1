@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   ScrollView,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import { apiRequest } from "../lib/api";
 import { fetchAccounts } from "../lib/queries";
 
@@ -27,9 +28,11 @@ export default function AccountsScreen() {
     }
   };
 
-  useEffect(() => {
-    loadAccounts();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      loadAccounts();
+    }, []),
+  );
 
   const createAccount = async () => {
     try {

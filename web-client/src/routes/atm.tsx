@@ -71,9 +71,11 @@ export default function ATM() {
         {searched && (
           <div className="space-y-3">
             <h3 className="font-semibold">
-              {results.length > 0
-                ? `${results.length} Chase ATM${results.length !== 1 ? 's' : ''} found near "${address}"`
-                : `No Chase ATMs found near "${address}". Try a nearby city or broader area.`}
+              {loading
+                ? 'Searching...'
+                : results.length > 0
+                  ? `${results.length} Chase ATM${results.length !== 1 ? 's' : ''} found near "${address}"`
+                  : `No Chase ATMs found near "${address}". Try a nearby city or broader area.`}
             </h3>
             <ul className="space-y-2">
               {results.map((atm, idx) => (
