@@ -1,0 +1,114 @@
+# dockerfile to build the apk
+FROM node:25-bookworm-slim AS build
+
+WORKDIR /app
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV ANDROID_SDK_ROOT=/opt/android-sdk
+ENV ANDROID_HOME=/opt/android-sdk
+ENV PATH=$PATH:/opt/android-sdk/cmdline-tools/latest/bin:/opt/android-sdk/platform-tools
+
+# get deps
+RUN apt-get update && apt-get install -y \
+    wget \
+    unzip \
+    curl \
+    git \
+    openjdk-17-jdk-headless \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# get Android command-line tools
+# this was the latest version as of Apr 24, 2026
+RUN mkdir -p ${ANDROID_SDK_ROOT}/cmdline-tools && \
+    wget -O /tmp/cmdline-tools.zip \
+      https://dl.google.com/android/repository/commandlinetools-linux-14742923_latest.zip && \
+    unzip /tmp/cmdline-tools.zip -d /tmp/android-cmdline-tools && \
+    mv /tmp/android-cmdline-tools/cmdline-tools ${ANDROID_SDK_ROOT}/cmdline-tools/latest && \
+    rm -rf /tmp/cmdline-tools.zip /tmp/android-cmdline-tools
+
+# accept licenses
+RUN yes | sdkmanager --licenses
+
+RUN sdkmanager --install \
+    "platform-tools" \
+    "platforms;android-35" \
+    "build-tools;35.0.0"
+
+# get native code tools too since plaid requires native code
+RUN sdkmanager --install \
+    "ndk;27.1.12297006" \
+    "cmake;3.22.1"
+
+# ===== Our Application =====
+COPY ./package.json /app/package.json
+COPY ./package-lock.json /app/package-lock.json
+RUN npm i
+
+COPY ./assets /app/assets
+COPY ./components /app/components
+COPY ./lib /app/lib
+COPY ./screens /app/screens
+COPY ./App.js /app/App.js
+COPY ./app.json /app/app.json
+COPY ./eas.json /app/eas.json
+
+# set up keys
+ARG KEYSTORE_PASSWORD
+ARG KEY_PASSWORD
+ARG KEY_ALIAS
+RUN : "${KEYSTORE_PASSWORD:?build arg KEYSTORE_PASSWORD is required}" \
+ && : "${KEY_PASSWORD:?build arg KEY_PASSWORD is required}" \
+ && : "${KEY_ALIAS:?build arg KEY_ALIAS is required}"
+
+RUN keytool -genkey -v -storetype JKS -keyalg RSA -keysize 2048 -validity 10000 \
+    -storepass "$KEYSTORE_PASSWORD" -keypass "$KEY_PASSWORD" -alias "$KEY_ALIAS" \
+    -keystore release.keystore \
+    -dname "CN=com.cs160.group1.mobileclient,OU=,O=,L=,S=,C=US"
+
+# set up backend url before building
+ARG BACKEND_URL
+RUN : "${BACKEND_URL:?build arg BACKEND_URL is required}"
+ENV EXPO_PUBLIC_BACKEND_URL=$BACKEND_URL
+
+# generate the native android project from app.json
+RUN npx expo prebuild -p android --no-install
+
+# move the keystore into the android project and wire it up via gradle.properties
+RUN mv release.keystore android/app/release.keystore
+RUN cat >> android/gradle.properties <<EOF
+
+MYAPP_UPLOAD_STORE_FILE=release.keystore
+MYAPP_UPLOAD_KEY_ALIAS=${KEY_ALIAS}
+MYAPP_UPLOAD_STORE_PASSWORD=${KEYSTORE_PASSWORD}
+MYAPP_UPLOAD_KEY_PASSWORD=${KEY_PASSWORD}
+EOF
+
+# based on https://docs.expo.dev/guides/local-app-production/
+# but since this is a dockerfile, it's just easier to
+# append a second android {} block since the Android Gradle Plugin merges it with
+# the one above
+RUN cat >> android/app/build.gradle <<'EOF'
+
+android {
+    signingConfigs {
+        release {
+            storeFile file(MYAPP_UPLOAD_STORE_FILE)
+            storePassword MYAPP_UPLOAD_STORE_PASSWORD
+            keyAlias MYAPP_UPLOAD_KEY_ALIAS
+            keyPassword MYAPP_UPLOAD_KEY_PASSWORD
+        }
+    }
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+        }
+    }
+}
+EOF
+
+# build the signed APK at android/app/build/outputs/apk/release/app-release.apk
+RUN cd android && ./gradlew assembleRelease
+
+FROM scratch
+COPY --from=build /app/android/app/build/outputs/apk/release/app-release.apk /
