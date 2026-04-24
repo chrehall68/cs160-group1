@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { create, open } from "react-native-plaid-link-sdk";
+import { create, open } from "../lib/plaidLink";
 import { useFocusEffect } from "@react-navigation/native";
 import PageLayout from "../components/PageLayout";
 import { apiRequest } from "../lib/api";
@@ -375,6 +375,10 @@ export default function TransferScreen() {
             accountsLoading={accountsLoading}
             reloadAccounts={loadAccounts}
           />
+        ) : Platform.OS === "web" ? (
+          <Text style={styles.errorText}>
+            External transfer isn&apos;t supported on web. Please use the mobile app.
+          </Text>
         ) : (
           <ExternalTransfer
             accounts={accounts}
