@@ -29,6 +29,7 @@ export default function LoginScreen({ onLogin, goToSignup }) {
 
       <TextInput
         placeholder="Username"
+        placeholderTextColor="#999"
         style={styles.input}
         value={username}
         onChangeText={setUsername}
@@ -36,6 +37,7 @@ export default function LoginScreen({ onLogin, goToSignup }) {
 
       <TextInput
         placeholder="Password"
+        placeholderTextColor="#999"
         secureTextEntry
         style={styles.input}
         value={password}
@@ -74,6 +76,7 @@ const styles = StyleSheet.create({
 
   input: {
     backgroundColor: 'white',
+    color: '#000',
     padding: 12,
     borderRadius: 10,
     marginBottom: 15,

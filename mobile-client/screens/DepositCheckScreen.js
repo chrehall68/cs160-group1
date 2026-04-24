@@ -197,6 +197,7 @@ export default function DepositCheckScreen() {
         <Text style={styles.label}>Check Amount</Text>
         <TextInput
           placeholder="0.00"
+          placeholderTextColor="#999"
           value={amount}
           onChangeText={(v) => setAmount(decimalOnly(v))}
           style={styles.input}
@@ -207,6 +208,7 @@ export default function DepositCheckScreen() {
         <Text style={styles.label}>From Account Number</Text>
         <TextInput
           placeholder="Enter account number"
+          placeholderTextColor="#999"
           value={fromAccountNumber}
           onChangeText={(v) => setFromAccountNumber(digitsOnly(v))}
           style={styles.input}
@@ -217,6 +219,7 @@ export default function DepositCheckScreen() {
         <Text style={styles.label}>From Routing Number</Text>
         <TextInput
           placeholder="Enter routing number"
+          placeholderTextColor="#999"
           value={fromRoutingNumber}
           onChangeText={(v) => setFromRoutingNumber(digitsOnly(v))}
           style={styles.input}
@@ -281,6 +284,8 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     borderRadius: 6,
     fontSize: 16,
+    backgroundColor: "white",
+    color: "#000",
   },
   pickerRow: {
     flexDirection: "row",

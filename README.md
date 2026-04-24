@@ -50,6 +50,27 @@ Then:
 - Press `a` for Android emulator
 - Or scan QR code with Expo Go
 
+### To Run the Mobile Client with Docker Compose
+
+[docker-compose.mobile.dev.yml](docker-compose.mobile.dev.yml) runs the Expo
+Metro bundler inside a container. You still need a phone with Expo Go installed. The only required env var
+is `EXPO_PUBLIC_BACKEND_URL`, which tells the app where the backend lives:
+
+```bash
+EXPO_PUBLIC_BACKEND_URL=https://ob.chrehall68.com/api \
+    docker compose -f docker-compose.mobile.dev.yml up --build
+```
+
+Scan the QR code that appears in the logs with Expo Go or the camera app on your phone.
+
+> **Note:** external transfers (the Plaid Link flow) will not work in Expo Go.
+> Plaid's SDK ships as a native module, and Expo Go bundles only a fixed set
+> of native modules — it cannot load arbitrary third-party native code. Every
+> other screen works fine over Expo Go. To use external transfers, build
+> and install the release APK via
+> [Dockerfile.apk](mobile-client/Dockerfile.apk) (see the next section); that
+> build has the Plaid native module compiled in.
+
 ### To Build the Mobile Client APK
 
 [mobile-client/Dockerfile.apk](mobile-client/Dockerfile.apk) produces a signed

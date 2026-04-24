@@ -60,6 +60,7 @@ export default function ATMScreen() {
       <View style={styles.card}>
         <TextInput
           placeholder="Enter address, city, or zip code"
+          placeholderTextColor="#999"
           value={address}
           onChangeText={setAddress}
           style={styles.input}
@@ -130,6 +131,8 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     borderRadius: 6,
     fontSize: 14,
+    backgroundColor: "white",
+    color: "#000",
   },
   button: {
     backgroundColor: "#0f766e",
