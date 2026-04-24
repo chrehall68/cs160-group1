@@ -69,6 +69,7 @@ export default function App() {
       {screen === 'signup' && (
         <SignupScreen
           goToLogin={() => setScreen('login')}
+          onLogin={() => setScreen('main')}
         />
       )}
 

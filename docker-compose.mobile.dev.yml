@@ -1,21 +1,4 @@
 # separate docker compose just for the mobile dev workflow.
-#
-# runs the expo metro bundler inside a container so a grader / teammate can
-# scan a QR code from Expo Go (or a dev client) without installing node,
-# expo, or ngrok locally.
-#
-# default: tunnel mode via @expo/ngrok. works across any network (phone on
-# cellular, grader on a different wifi, etc.) at the cost of some reload
-# latency. the QR code printed in the logs points at an ngrok URL.
-#
-# faster LAN-only alternatives, in order of simplicity:
-#   1. linux host: uncomment `network_mode: host` and drop `ports:`. the
-#      container shares the host's network stack so the phone on the same
-#      wifi can hit metro directly. override the CMD to drop `--tunnel`.
-#   2. mac/windows: set REACT_NATIVE_PACKAGER_HOSTNAME to the host's LAN IP
-#      (e.g. 192.168.1.42), keep `ports:`, override the CMD to drop
-#      `--tunnel`. metro will advertise that IP in the QR code.
-
 services:
   mobile:
     build:

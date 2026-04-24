@@ -11,7 +11,7 @@ import {
 } from 'react-native'
 import { signup } from '../lib/queries'
 
-export default function SignupScreen({ goToLogin }) {
+export default function SignupScreen({ goToLogin, onLogin }) {
   const [form, setForm] = useState({
     username: '',
     password: '',
@@ -84,8 +84,9 @@ export default function SignupScreen({ goToLogin }) {
           country: form.country,
         },
       })
+      // success, so call onLogin
+      onLogin()
 
-      goToLogin()
     } catch (err) {
       console.log(err)
       setError('Signup failed. Try again.')
