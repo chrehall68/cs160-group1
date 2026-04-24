@@ -33,6 +33,7 @@ from datetime import date, datetime, timezone
 import plaid
 from plaid.model.transfer_intent_create_request import TransferIntentCreateRequest
 from plaid.model.transfer_intent_create_mode import TransferIntentCreateMode
+from plaid.model.transfer_intent_get_request import TransferIntentGetRequest
 from plaid.model.link_token_create_request import LinkTokenCreateRequest
 from plaid.model.ach_class import ACHClass
 from plaid.model.country_code import CountryCode
@@ -474,6 +475,35 @@ def complete_external_transfer(
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Account does not belong to user",
+            )
+
+        # verify that plaid actually authorized the transfer.
+        # we have to do this since the link
+        # can succeed (account was linked) while the transfer itself is
+        # declined, in which case onSuccess still fires
+        # https://plaid.com/docs/api/products/transfer/account-linking/#transferintentget
+        intent_res = plaid_client.transfer_intent_get(
+            TransferIntentGetRequest(
+                transfer_intent_id=potential_transfer.transfer_intent_id
+            )
+        )
+        intent = intent_res["transfer_intent"]
+        intent_status = str(intent.get("status"))
+        decision = str(intent.get("authorization_decision"))
+        if intent_status != "SUCCEEDED" or decision != "APPROVED":
+            rationale = intent.get("authorization_decision_rationale") or {}
+            code = str(rationale.get("code")) if rationale else None
+            if code == "NSF":
+                detail = "External account has insufficient funds"
+            elif code == "TRANSFER_LIMIT_REACHED":
+                detail = "External account transfer limit reached"
+            else:
+                detail = "External transfer was not authorized"
+            session.delete(potential_transfer)
+            session.commit()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=detail,
             )
 
         # exchange public token
