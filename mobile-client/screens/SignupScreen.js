@@ -37,6 +37,8 @@ export default function SignupScreen({ goToLogin, onLogin }) {
     setForm((prev) => ({ ...prev, [key]: value }))
   }
 
+  const digitsOnly = (value) => value.replace(/\D/g, '')
+
   const formatDOB = (value) => {
     const digits = value.replace(/\D/g, '').slice(0, 8)
 
@@ -144,11 +146,31 @@ export default function SignupScreen({ goToLogin, onLogin }) {
                 label="Date of Birth (MM/DD/YYYY)"
                 value={form.dob}
                 onChange={(v) => update('dob', formatDOB(v))}
+                keyboardType="number-pad"
+                maxLength={10}
               />
 
-              <Input label="Email" value={form.email} onChange={(v) => update('email', v)} />
-              <Input label="Phone" value={form.phone} onChange={(v) => update('phone', v)} />
-              <Input label="SSN" value={form.ssn} onChange={(v) => update('ssn', v)} />
+              <Input
+                label="Email"
+                value={form.email}
+                onChange={(v) => update('email', v)}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+              <Input
+                label="Phone"
+                value={form.phone}
+                onChange={(v) => update('phone', digitsOnly(v).slice(0, 10))}
+                keyboardType="number-pad"
+                maxLength={10}
+              />
+              <Input
+                label="SSN"
+                value={form.ssn}
+                onChange={(v) => update('ssn', digitsOnly(v).slice(0, 9))}
+                keyboardType="number-pad"
+                maxLength={9}
+              />
             </Section>
 
             <Section title="Address">
@@ -161,7 +183,14 @@ export default function SignupScreen({ goToLogin, onLogin }) {
               </Row>
 
               <Row>
-                <Input half label="Zip" value={form.zip} onChange={(v) => update('zip', v)} />
+                <Input
+                  half
+                  label="Zip"
+                  value={form.zip}
+                  onChange={(v) => update('zip', digitsOnly(v).slice(0, 5))}
+                  keyboardType="number-pad"
+                  maxLength={5}
+                />
                 <Input half label="Country" value={form.country} onChange={(v) => update('country', v)} />
               </Row>
             </Section>
@@ -200,7 +229,16 @@ function Row({ children }) {
   return <View style={styles.row}>{children}</View>
 }
 
-function Input({ label, value, onChange, secure, half }) {
+function Input({
+  label,
+  value,
+  onChange,
+  secure,
+  half,
+  keyboardType,
+  maxLength,
+  autoCapitalize,
+}) {
   return (
     <View style={[styles.field, half && { flex: 1 }]}>
       <Text style={styles.label}>{label}</Text>
@@ -209,6 +247,9 @@ function Input({ label, value, onChange, secure, half }) {
         value={value}
         onChangeText={onChange}
         secureTextEntry={secure}
+        keyboardType={keyboardType}
+        maxLength={maxLength}
+        autoCapitalize={autoCapitalize}
         placeholderTextColor="#999"
       />
     </View>
