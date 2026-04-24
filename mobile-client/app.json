@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "mobile-client",
+    "name": "online-bank",
     "slug": "mobile-client",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -10,21 +10,18 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.cs160.group1.mobileclient"
+      "bundleIdentifier": "com.cs160.group1.mobileclient",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
-      "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
-      },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.cs160.group1.mobileclient"
     },
     "web": {
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/favicon.ico"
     },
     "plugins": [
       [
@@ -39,6 +36,11 @@
           }
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "3154fec8-d56b-491d-a75b-f25a03d1bd76"
+      }
+    }
   }
 }
