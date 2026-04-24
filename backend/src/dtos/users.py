@@ -11,6 +11,12 @@ class AddressRequest(BaseModel):
     zipcode: str
     country: str
 
+    @field_validator("zipcode")
+    def validate_zipcode(cls, v: str) -> str:
+        if not v.isdigit():
+            raise ValueError("Zip code must contain only digits")
+        return v
+
 
 class LoginRequest(BaseModel):
     username: str

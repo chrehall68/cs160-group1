@@ -18,13 +18,17 @@ export async function logout() {
 }
 
 export async function signup(body) {
-  return apiRequest("/user", {
+  const data = apiRequest("/user", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
   });
+  if (data.access_token) {
+    await AsyncStorage.setItem("auth.jwt", data.access_token);
+  }
+  return data;
 }
 
 export async function fetchAccounts() {
