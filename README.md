@@ -50,6 +50,33 @@ Then:
 - Press `a` for Android emulator
 - Or scan QR code with Expo Go
 
+### To Build the Mobile Client APK
+
+[mobile-client/Dockerfile.apk](mobile-client/Dockerfile.apk) produces a signed
+release APK reproducibly, without needing an Expo account or a local Android
+SDK install. It runs `expo prebuild` to materialize the native Android project,
+generates a fresh keystore inside the image with random credentials, and builds
+with gradle directly.
+
+The keystore is regenerated on every build and its credentials never leave the
+build layer, so there is nothing to manage externally. The only required build
+arg is:
+
+- `BACKEND_URL` — baked into the app as `EXPO_PUBLIC_BACKEND_URL`
+
+The final stage is `FROM scratch` and contains only the signed APK, so extract
+it with BuildKit's `--output`:
+
+```bash
+docker buildx build \
+    -f mobile-client/Dockerfile.apk \
+    --build-arg BACKEND_URL=https://ob.chrehall68.com/api \
+    --output type=local,dest=./out \
+    mobile-client
+```
+
+The signed APK lands at `./out/app-release.apk`. Note that you must uninstall any previous version of the app before installing the apk.
+
 ### To Run All Services with Docker Compose
 
 To run the web client, backend, and database together in development mode:

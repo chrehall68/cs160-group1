@@ -53,19 +53,6 @@ COPY ./App.js /app/App.js
 COPY ./app.json /app/app.json
 COPY ./eas.json /app/eas.json
 
-# set up keys
-ARG KEYSTORE_PASSWORD
-ARG KEY_PASSWORD
-ARG KEY_ALIAS
-RUN : "${KEYSTORE_PASSWORD:?build arg KEYSTORE_PASSWORD is required}" \
- && : "${KEY_PASSWORD:?build arg KEY_PASSWORD is required}" \
- && : "${KEY_ALIAS:?build arg KEY_ALIAS is required}"
-
-RUN keytool -genkey -v -storetype JKS -keyalg RSA -keysize 2048 -validity 10000 \
-    -storepass "$KEYSTORE_PASSWORD" -keypass "$KEY_PASSWORD" -alias "$KEY_ALIAS" \
-    -keystore release.keystore \
-    -dname "CN=com.cs160.group1.mobileclient,OU=,O=,L=,S=,C=US"
-
 # set up backend url before building
 ARG BACKEND_URL
 RUN : "${BACKEND_URL:?build arg BACKEND_URL is required}"
@@ -74,14 +61,23 @@ ENV EXPO_PUBLIC_BACKEND_URL=$BACKEND_URL
 # generate the native android project from app.json
 RUN npx expo prebuild -p android --no-install
 
-# move the keystore into the android project and wire it up via gradle.properties
-RUN mv release.keystore android/app/release.keystore
-RUN cat >> android/gradle.properties <<EOF
+# generate a signing keystore with random credentials and wire it up via
+# gradle.properties. the APK only needs to be internally self-consistent
+# for this build, so we don't need stable keys across builds — this also
+# keeps signing passwords out of --build-arg and image history.
+RUN KEYSTORE_PASSWORD=$(node -e "console.log(require('crypto').randomBytes(24).toString('hex'))") && \
+    KEY_PASSWORD=$(node -e "console.log(require('crypto').randomBytes(24).toString('hex'))") && \
+    KEY_ALIAS=$(node -e "console.log(require('crypto').randomBytes(8).toString('hex'))") && \
+    keytool -genkey -v -storetype JKS -keyalg RSA -keysize 2048 -validity 10000 \
+        -storepass "$KEYSTORE_PASSWORD" -keypass "$KEY_PASSWORD" -alias "$KEY_ALIAS" \
+        -keystore android/app/release.keystore \
+        -dname "CN=com.cs160.group1.mobileclient,OU=,O=,L=,S=,C=US" && \
+    cat >> android/gradle.properties <<EOF
 
 MYAPP_UPLOAD_STORE_FILE=release.keystore
-MYAPP_UPLOAD_KEY_ALIAS=${KEY_ALIAS}
-MYAPP_UPLOAD_STORE_PASSWORD=${KEYSTORE_PASSWORD}
-MYAPP_UPLOAD_KEY_PASSWORD=${KEY_PASSWORD}
+MYAPP_UPLOAD_KEY_ALIAS=$KEY_ALIAS
+MYAPP_UPLOAD_STORE_PASSWORD=$KEYSTORE_PASSWORD
+MYAPP_UPLOAD_KEY_PASSWORD=$KEY_PASSWORD
 EOF
 
 # based on https://docs.expo.dev/guides/local-app-production/
