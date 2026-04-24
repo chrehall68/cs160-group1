@@ -143,6 +143,7 @@ function InternalTransfer({ accounts, accountsLoading, reloadAccounts }) {
       <Text style={styles.label}>To Account Number</Text>
       <TextInput
         placeholder="Enter account number"
+        placeholderTextColor="#999"
         value={account}
         onChangeText={(v) => setAccount(digitsOnly(v))}
         style={styles.input}
@@ -152,6 +153,7 @@ function InternalTransfer({ accounts, accountsLoading, reloadAccounts }) {
       <Text style={styles.label}>Routing Number</Text>
       <TextInput
         placeholder="9-digit routing number"
+        placeholderTextColor="#999"
         value={routing}
         onChangeText={(v) => setRouting(digitsOnly(v))}
         style={styles.input}
@@ -162,6 +164,7 @@ function InternalTransfer({ accounts, accountsLoading, reloadAccounts }) {
       <Text style={styles.label}>Amount</Text>
       <TextInput
         placeholder="0.00"
+        placeholderTextColor="#999"
         value={amount}
         onChangeText={(v) => setAmount(decimalOnly(v))}
         style={styles.input}
@@ -274,6 +277,7 @@ function ExternalTransfer({ accounts, accountsLoading, reloadAccounts }) {
       <Text style={styles.label}>Amount</Text>
       <TextInput
         placeholder="0.00"
+        placeholderTextColor="#999"
         value={amount}
         onChangeText={(v) => setAmount(decimalOnly(v))}
         style={styles.input}
@@ -417,6 +421,8 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     borderRadius: 6,
     fontSize: 16,
+    backgroundColor: "white",
+    color: "#000",
   },
 
   // toggle

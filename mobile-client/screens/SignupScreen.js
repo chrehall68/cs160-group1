@@ -195,6 +195,7 @@ function Input({ label, value, onChange, secure, half }) {
         value={value}
         onChangeText={onChange}
         secureTextEntry={secure}
+        placeholderTextColor="#999"
       />
     </View>
   )
@@ -246,6 +247,8 @@ const styles = StyleSheet.create({
     borderColor: '#ccc',
     borderRadius: 8,
     padding: 12,
+    backgroundColor: 'white',
+    color: '#000',
   },
   button: {
     marginTop: 20,
