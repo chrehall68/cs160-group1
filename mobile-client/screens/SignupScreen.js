@@ -89,11 +89,15 @@ export default function SignupScreen({ goToLogin, onLogin }) {
 
     } catch (err) {
       console.log(err)
-      setError('Signup failed. Try again.')
+      setError(err?.message || 'Signup failed. Try again.')
     } finally {
       setLoading(false)
     }
   }
+
+  const errorLines = error
+    ? error.split('\n').filter((l) => l.trim().length > 0)
+    : []
 
   return (
     <View style={{ flex: 1 }}>
@@ -109,9 +113,18 @@ export default function SignupScreen({ goToLogin, onLogin }) {
           <View style={styles.card}>
             <Text style={styles.title}>Create Account</Text>
 
-            {error ? (
+            {errorLines.length > 0 ? (
               <View style={styles.errorBox}>
-                <Text style={styles.errorText}>{error}</Text>
+                {errorLines.length > 1 ? (
+                  errorLines.map((line, i) => (
+                    <View key={i} style={styles.errorBullet}>
+                      <Text style={styles.errorText}>{'•  '}</Text>
+                      <Text style={[styles.errorText, { flex: 1 }]}>{line}</Text>
+                    </View>
+                  ))
+                ) : (
+                  <Text style={styles.errorText}>{error}</Text>
+                )}
               </View>
             ) : null}
 
@@ -281,5 +294,9 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: '#b42318',
+  },
+  errorBullet: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
   },
 })
