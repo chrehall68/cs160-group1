@@ -1,0 +1,28 @@
+FROM node:25-bookworm-slim
+
+WORKDIR /app
+
+# git: some metro/expo plugins shell out to it during bundling
+# tini: forwards SIGINT/SIGTERM so Ctrl-C actually stops the expo CLI
+# expect: drives the one-time "log in / proceed anonymously" prompt that
+#         --tunnel shows for unverified apps, so `docker compose up` is
+#         fully non-interactive without having to enable CI mode (which
+#         would disable the QR code and watch mode)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    tini \
+    expect \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY package.json package-lock.json ./
+RUN npm install
+
+# install the ngrok agent so `expo start --tunnel` works
+RUN npm install --no-save @expo/ngrok
+
+COPY expo-start.exp /usr/local/bin/expo-start
+RUN chmod +x /usr/local/bin/expo-start
+
+EXPOSE 8081
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["/usr/local/bin/expo-start"]

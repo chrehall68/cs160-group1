@@ -1,0 +1,19 @@
+#!/usr/bin/expect -f
+
+# wrapper around `expo start --tunnel` that auto-dismisses the
+# "log in or proceed anonymously" prompt Expo shows for unverified
+# apps. the prompt re-appears every time a client (re-)connects to
+# the tunnel, so we use `interact -o` to match the prompt and
+# answer it for the entire session instead of just at startup.
+
+set timeout -1
+log_user 1
+
+spawn npx expo start --tunnel
+
+interact {
+    -o "Proceed anonymously" {
+        # down-arrow to move off the default "Log in", then Enter
+        send "\033\[B\r"
+    }
+}
