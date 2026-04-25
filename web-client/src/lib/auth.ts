@@ -79,6 +79,22 @@ const notifyAuthChanged = () => {
 
 let expiryTimer: ReturnType<typeof setTimeout> | null = null
 
+// When the timer fires we re-read the current token rather than clearing
+// blindly, because another tab may have refreshed the session in the meantime —
+// without this check, a stale timer scheduled for an old token could clear a
+// brand-new valid one.
+const handleExpiry = () => {
+  expiryTimer = null
+  if (typeof window === 'undefined') return
+  const currentToken = window.localStorage.getItem(TOKEN_KEY)
+  if (!currentToken) return
+  if (isTokenExpired(currentToken)) {
+    clearAuthSession()
+  } else {
+    scheduleExpiryClear(currentToken)
+  }
+}
+
 const scheduleExpiryClear = (token: string) => {
   if (typeof window === 'undefined') return
   if (expiryTimer !== null) {
@@ -92,10 +108,7 @@ const scheduleExpiryClear = (token: string) => {
     clearAuthSession()
     return
   }
-  expiryTimer = setTimeout(() => {
-    expiryTimer = null
-    clearAuthSession()
-  }, delay)
+  expiryTimer = setTimeout(handleExpiry, delay)
 }
 
 export const setAuthSession = (token: string, role: Role, userId: number) => {
