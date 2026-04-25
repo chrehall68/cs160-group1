@@ -1,18 +1,20 @@
+import { useFocusEffect } from "@react-navigation/native";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Button,
+  Modal,
   Platform,
+  Pressable,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
-import { create, open } from "../lib/plaidLink";
-import { useFocusEffect } from "@react-navigation/native";
 import PageLayout from "../components/PageLayout";
 import { apiRequest } from "../lib/api";
+import { create, open } from "../lib/plaidLink";
 import { fetchAccounts } from "../lib/queries";
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
@@ -72,12 +74,94 @@ function AccountPicker({ accounts, selectedId, onSelect }) {
   );
 }
 
+const FREQUENCIES = [
+  { value: "once", label: "Once" },
+  { value: "weekly", label: "Weekly" },
+  { value: "biweekly", label: "Biweekly" },
+  { value: "monthly", label: "Monthly" },
+];
+
+const MMDDYYYY_RE = /^\d{2}\/\d{2}\/\d{4}$/;
+
+function formatMMDDYYYY(value) {
+  const digits = value.replace(/\D/g, "").slice(0, 8);
+  if (digits.length >= 5) {
+    return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+  } else if (digits.length >= 3) {
+    return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  }
+  return digits;
+}
+
+function mmddyyyyToISO(value) {
+  const [m, d, y] = value.split("/");
+  if (!m || !d || !y) return "";
+  return `${y}-${m}-${d}`;
+}
+
+function Select({ value, options, onChange }) {
+  const [open, setOpen] = useState(false);
+  const current = options.find((o) => o.value === value);
+  return (
+    <>
+      <TouchableOpacity
+        style={styles.selectInput}
+        onPress={() => setOpen(true)}
+        activeOpacity={0.75}
+      >
+        <Text style={styles.selectValue}>{current?.label ?? ""}</Text>
+        <Text style={styles.selectChevron}>▾</Text>
+      </TouchableOpacity>
+      <Modal
+        transparent
+        visible={open}
+        animationType="fade"
+        onRequestClose={() => setOpen(false)}
+      >
+        <Pressable style={styles.selectBackdrop} onPress={() => setOpen(false)}>
+          <Pressable style={styles.selectSheet}>
+            {options.map((o) => {
+              const selected = o.value === value;
+              return (
+                <TouchableOpacity
+                  key={o.value}
+                  style={[
+                    styles.selectOption,
+                    selected && styles.selectOptionActive,
+                  ]}
+                  onPress={() => {
+                    onChange(o.value);
+                    setOpen(false);
+                  }}
+                  activeOpacity={0.75}
+                >
+                  <Text
+                    style={[
+                      styles.selectOptionText,
+                      selected && styles.selectOptionTextActive,
+                    ]}
+                  >
+                    {o.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </>
+  );
+}
+
 // ─── INTERNAL TRANSFER ───────────────────────────────────────────────────────
 function InternalTransfer({ accounts, accountsLoading, reloadAccounts }) {
   const [fromAccountId, setFromAccountId] = useState(null);
   const [account, setAccount] = useState("");
   const [routing, setRouting] = useState("");
   const [amount, setAmount] = useState("");
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [frequency, setFrequency] = useState("weekly");
+  const [startDate, setStartDate] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -97,28 +181,45 @@ function InternalTransfer({ accounts, accountsLoading, reloadAccounts }) {
       return setError("Please select an account to transfer from.");
     if (!account) return setError("Please enter a destination account number.");
     if (!routing) return setError("Please enter a routing number.");
-    if (routing.length !== 9)
-      return setError("Routing number must be 9 digits.");
     const amountNum = Number(amount);
     if (!amount || isNaN(amountNum) || amountNum <= 0)
       return setError("Please enter a valid amount.");
+    if (isRecurring && !MMDDYYYY_RE.test(startDate))
+      return setError("Please enter a start date in MM/DD/YYYY format.");
 
     setLoading(true);
     try {
-      await apiRequest(`/transfer/internal`, {
-        method: "POST",
-        body: JSON.stringify({
-          from_account_id: fromAccountId,
-          to_account_number: account,
-          to_routing_number: routing,
-          amount: amount,
-        }),
-      });
-
-      setSuccess("Transfer submitted successfully!");
+      if (isRecurring) {
+        await apiRequest(`/recurring`, {
+          method: "POST",
+          body: JSON.stringify({
+            from_account_id: fromAccountId,
+            payee_account_number: account,
+            payee_routing_number: routing,
+            amount: amount,
+            frequency,
+            next_payment_date: mmddyyyyToISO(startDate),
+          }),
+        });
+        setSuccess("Scheduled transfer created!");
+      } else {
+        await apiRequest(`/transfer/internal`, {
+          method: "POST",
+          body: JSON.stringify({
+            from_account_id: fromAccountId,
+            to_account_number: account,
+            to_routing_number: routing,
+            amount: amount,
+          }),
+        });
+        setSuccess("Transfer submitted successfully!");
+      }
       setAccount("");
       setRouting("");
       setAmount("");
+      setStartDate("");
+      setFrequency("weekly");
+      setIsRecurring(false);
       reloadAccounts();
     } catch (e) {
       setError(e.message || "Something went wrong.");
@@ -171,13 +272,49 @@ function InternalTransfer({ accounts, accountsLoading, reloadAccounts }) {
         keyboardType="decimal-pad"
       />
 
+      <TouchableOpacity
+        style={styles.scheduleToggleRow}
+        onPress={() => setIsRecurring((v) => !v)}
+        activeOpacity={0.75}
+      >
+        <View style={[styles.checkbox, isRecurring && styles.checkboxChecked]}>
+          {isRecurring && <Text style={styles.checkboxMark}>✓</Text>}
+        </View>
+        <Text style={styles.scheduleToggleText}>Schedule for later</Text>
+      </TouchableOpacity>
+
+      {isRecurring && (
+        <View style={styles.scheduleBox}>
+          <Text style={styles.label}>Frequency</Text>
+          <Select
+            value={frequency}
+            options={FREQUENCIES}
+            onChange={setFrequency}
+          />
+
+          <Text style={styles.label}>Start Date (MM/DD/YYYY)</Text>
+          <TextInput
+            placeholder="MM/DD/YYYY"
+            placeholderTextColor="#999"
+            value={startDate}
+            onChangeText={(v) => setStartDate(formatMMDDYYYY(v))}
+            style={styles.input}
+            keyboardType="number-pad"
+            maxLength={10}
+          />
+        </View>
+      )}
+
       {!!error && <Text style={styles.errorText}>{error}</Text>}
       {!!success && <Text style={styles.successText}>{success}</Text>}
 
       {loading ? (
         <ActivityIndicator color="#007AFF" />
       ) : (
-        <Button title="Submit Transfer" onPress={handleSubmit} />
+        <Button
+          title={isRecurring ? "Schedule Transfer" : "Submit Transfer"}
+          onPress={handleSubmit}
+        />
       )}
     </>
   );
@@ -341,10 +478,7 @@ export default function TransferScreen() {
             activeOpacity={0.75}
           >
             <Text
-              style={[
-                styles.toggleText,
-                internal && styles.toggleTextActive,
-              ]}
+              style={[styles.toggleText, internal && styles.toggleTextActive]}
             >
               Internal
             </Text>
@@ -359,10 +493,7 @@ export default function TransferScreen() {
             activeOpacity={0.75}
           >
             <Text
-              style={[
-                styles.toggleText,
-                !internal && styles.toggleTextActive,
-              ]}
+              style={[styles.toggleText, !internal && styles.toggleTextActive]}
             >
               External
             </Text>
@@ -381,7 +512,8 @@ export default function TransferScreen() {
           />
         ) : Platform.OS === "web" ? (
           <Text style={styles.errorText}>
-            External transfer isn&apos;t supported on web. Please use the mobile app.
+            External transfer isn&apos;t supported on web. Please use the mobile
+            app.
           </Text>
         ) : (
           <ExternalTransfer
@@ -505,6 +637,103 @@ const styles = StyleSheet.create({
   },
   accountBalanceSelected: {
     color: "#0052CC",
+  },
+
+  // schedule toggle + box
+  scheduleToggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 16,
+    marginBottom: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#eee",
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderWidth: 1.5,
+    borderColor: "#ccc",
+    borderRadius: 4,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "white",
+  },
+  checkboxChecked: {
+    borderColor: "#007AFF",
+    backgroundColor: "#007AFF",
+  },
+  checkboxMark: {
+    color: "white",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  scheduleToggleText: {
+    marginLeft: 8,
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#333",
+  },
+  scheduleBox: {
+    marginBottom: 12,
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: "#F5F8FF",
+  },
+  // select
+  selectInput: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    marginBottom: 4,
+    borderRadius: 6,
+    backgroundColor: "white",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  selectValue: {
+    fontSize: 16,
+    color: "#000",
+  },
+  selectChevron: {
+    fontSize: 14,
+    color: "#6B7A99",
+    marginLeft: 8,
+  },
+  selectBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  selectSheet: {
+    width: "100%",
+    maxWidth: 320,
+    backgroundColor: "white",
+    borderRadius: 12,
+    paddingVertical: 6,
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  selectOption: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  selectOptionActive: {
+    backgroundColor: "#EEF4FF",
+  },
+  selectOptionText: {
+    fontSize: 16,
+    color: "#333",
+  },
+  selectOptionTextActive: {
+    color: "#007AFF",
+    fontWeight: "600",
   },
 
   // feedback
