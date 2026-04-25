@@ -2,9 +2,8 @@ import os
 from fastapi import Depends
 from typing_extensions import Annotated
 from sqlalchemy import Engine, create_engine
-from sqlmodel import SQLModel, Session, select
+from sqlmodel import SQLModel, Session
 from models import *
-from dependencies.auth import hash_password
 import logging
 
 logger = logging.getLogger("uvicorn.error")
@@ -63,36 +62,12 @@ def get_engine():
     return engine
 
 
-def create_admin_user():
-    # hardcoded admin user
-    # TODO - probably should use a migration for this instead
-    try:
-        with Session(engine) as session:
-            if session.exec(
-                select(User)
-                .where(User.username == "admin")
-                .where(User.role == UserRole.ADMIN)
-            ).first():
-                return
-            admin_user = User(
-                username="admin",
-                role=UserRole.ADMIN,
-                password_hash=hash_password("password"),
-                customer_id=None,
-            )
-            session.add(admin_user)
-            session.commit()
-    except Exception as e:
-        logger.info(e)
-
-
 def create_db_and_tables(database_url: str | None = None) -> Engine:
     global engine
     if engine is None or database_url is not None:
         engine = create_engine(database_url or build_database_url())
 
     SQLModel.metadata.create_all(engine)
-    create_admin_user()
     return engine
 
 

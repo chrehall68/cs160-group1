@@ -450,7 +450,7 @@ function ManagerDashboard() {
                   {transactions.data.map((t: any) => (
                     <tr key={t.transaction_id} className="border-b border-[var(--line)] transition-colors hover:bg-[var(--foam)]">
                       <td className="px-4 py-2">{t.transaction_id}</td>
-                      <td className="px-4 py-2">{t.account_id}</td>
+                      <td className="px-4 py-2">{(t.account_ids ?? []).join(', ')}</td>
                       <td className="px-4 py-2 capitalize">{t.transaction_type.replace('_', ' ')}</td>
                       <td className="px-4 py-2 text-xs font-semibold uppercase">{t.status}</td>
                       <td className="px-4 py-2 text-right font-bold">${Number(t.amount).toFixed(2)}</td>

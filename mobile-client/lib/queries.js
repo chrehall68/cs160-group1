@@ -7,6 +7,11 @@ export async function login(username, password) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ username, password }),
   });
+  if (data.role === "admin") {
+    const err = new Error("Admin accounts must sign in on the web client.");
+    err.code = "ADMIN_NOT_ALLOWED";
+    throw err;
+  }
   if (data.access_token) {
     await AsyncStorage.setItem("auth.jwt", data.access_token);
   }

@@ -10,6 +10,7 @@ from dependencies.admin import AdminDep
 from models import (
     Account,
     Transaction,
+    TransactionToAccount,
     LedgerEntry,
     User,
     TransactionType,
@@ -179,7 +180,34 @@ def get_all_transactions(
             .limit(limit)
         ).all()
 
-        return {"data": transactions, "total_pages": total_pages, "page": page}
+        # fetch associated account ids for the page in a single query
+        transaction_ids = []
+        for t in transactions:
+            assert t.transaction_id
+            transaction_ids.append(t.transaction_id)
+        account_ids_by_txn = {tid: [] for tid in transaction_ids}
+        if transaction_ids:
+            link_rows = session.exec(
+                select(
+                    TransactionToAccount.transaction_id,
+                    TransactionToAccount.account_id,
+                )
+                .where(TransactionToAccount.transaction_id.in_(transaction_ids))  # type: ignore
+                .order_by(TransactionToAccount.account_id)  # type: ignore
+            ).all()
+            for txn_id, acct_id in link_rows:
+                assert acct_id and txn_id
+                account_ids_by_txn[txn_id].append(acct_id)
+
+        data = [
+            {
+                **t.model_dump(mode="json"),
+                "account_ids": account_ids_by_txn.get(t.transaction_id, []),
+            }
+            for t in transactions
+        ]
+
+        return {"data": data, "total_pages": total_pages, "page": page}
 
     except HTTPException:
         raise
