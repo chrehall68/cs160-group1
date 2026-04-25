@@ -19,7 +19,11 @@ export default function LoginScreen({ onLogin, goToSignup }) {
       await login(username, password)
       onLogin() // switches to tabs
     } catch (err) {
-      setError('Invalid username or password')
+      if (err?.code === 'ADMIN_NOT_ALLOWED') {
+        setError(err.message)
+      } else {
+        setError('Invalid username or password')
+      }
     }
   }
 
