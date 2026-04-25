@@ -12,6 +12,7 @@ os.environ.setdefault(
 )
 import dependencies.db as db
 from app import app as fastapi_app
+from tests.shared import ensure_admin_user
 
 
 @pytest.fixture(scope="session")
@@ -30,6 +31,7 @@ def app(database_url):
     engine = db.create_db_and_tables(database_url)
     SQLModel.metadata.drop_all(engine)
     SQLModel.metadata.create_all(engine)
+    ensure_admin_user(engine)
 
     yield fastapi_app
 

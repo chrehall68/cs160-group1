@@ -40,6 +40,23 @@ services:
       /var/www/certbot; sleep 12h & wait $${!}; done;"
     restart: unless-stopped
 
+  backend-init:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    working_dir: /app/src
+    command: ["python", "-m", "seed"]
+    environment:
+      DB_USER: ${DB_USER:? "Missing DB_USER env var"}
+      DB_PASSWORD: ${DB_PASSWORD:? "Missing DB_PASSWORD env var"}
+      DB_LOCATION: database
+      DB_NAME: postgres
+      SEED_FILE: ${SEED_FILE:-/app/seeds/default.sql}
+    depends_on:
+      database:
+        condition: service_healthy
+    restart: "no"
+
   backend:
     build:
       context: ./backend
@@ -70,6 +87,8 @@ services:
     depends_on:
       database:
         condition: service_healthy
+      backend-init:
+        condition: service_completed_successfully
     healthcheck:
       test:
         [

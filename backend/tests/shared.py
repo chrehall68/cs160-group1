@@ -1,5 +1,26 @@
 from uuid import uuid4
 
+from sqlalchemy import Engine
+from sqlmodel import Session, select
+
+from dependencies.auth import hash_password
+from models import User, UserRole
+
+
+def ensure_admin_user(engine: Engine) -> None:
+    with Session(engine) as session:
+        if session.exec(select(User).where(User.username == "admin")).first():
+            return
+        session.add(
+            User(
+                username="admin",
+                role=UserRole.ADMIN,
+                password_hash=hash_password("password"),
+                customer_id=None,
+            )
+        )
+        session.commit()
+
 
 def make_register_payload(username: str | None = None) -> dict:
     suffix = uuid4().hex[:8]

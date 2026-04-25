@@ -451,6 +451,18 @@ class PotentialExternalTransfer(SQLModel, table=True):
     created_at: datetime = Field(default_factory=utcnow)
 
 
+# tracks which seed files have been applied to the database
+class SeedHistory(SQLModel, table=True):
+    id: Optional[int] = Field(
+        default=None,
+        primary_key=True,
+        sa_type=BigInteger,
+    )
+    filename: str = Field(max_length=512, index=True)
+    sha256: str = Field(max_length=64)
+    applied_at: datetime = Field(default_factory=utcnow)
+
+
 # audit log
 class AuditLog(SQLModel, table=True):
     # pk
