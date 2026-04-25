@@ -14,11 +14,13 @@ def process_recurring_payments():
 
     with Session(get_engine()) as session:
         payments = session.exec(
-            select(RecurringPayment).where(
+            select(RecurringPayment)
+            .where(
                 RecurringPayment.next_payment_date <= date.today(),
                 RecurringPayment.canceled_at == None,
                 RecurringPayment.completed_at == None,
             )
+            .order_by(RecurringPayment.recurring_payment_id)  # type: ignore
         ).all()
 
         for payment in payments:

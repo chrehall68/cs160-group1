@@ -201,7 +201,7 @@ def get_all_transactions(
 
         data = [
             {
-                **t.model_dump(),
+                **t.model_dump(mode="json"),
                 "account_ids": account_ids_by_txn.get(t.transaction_id, []),
             }
             for t in transactions

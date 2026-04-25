@@ -285,10 +285,12 @@ def get_all_accounts(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Customer not found"
             )
 
+        # enforce consistent order
         statement = (
             select(Account)
             .where(Account.customer_id == user.customer_id)
             .where(Account.status == AccountStatus.ACTIVE)
+            .order_by(Account.account_id)  # type: ignore
         )
         accounts = session.exec(statement).all()
 
