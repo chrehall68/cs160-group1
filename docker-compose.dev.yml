@@ -57,6 +57,26 @@ services:
     volumes:
       - ./backend:/app
 
+  scheduler:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    working_dir: /app/src
+    command: ["python", "-m", "scheduler"]
+    environment:
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_LOCATION: database
+      DB_NAME: postgres
+    depends_on:
+      database:
+        condition: service_healthy
+      backend-init:
+        condition: service_completed_successfully
+    volumes:
+      - ./backend:/app
+    restart: unless-stopped
+
   database:
     image: postgres:17-alpine
     ports:

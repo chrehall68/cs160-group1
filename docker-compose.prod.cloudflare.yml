@@ -87,6 +87,24 @@ services:
       start_period: 30s
     restart: unless-stopped
 
+  scheduler:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    working_dir: /app/src
+    command: ["python", "-m", "scheduler"]
+    environment:
+      DB_USER: ${DB_USER:? "Missing DB_USER env var"}
+      DB_PASSWORD: ${DB_PASSWORD:? "Missing DB_PASSWORD env var"}
+      DB_LOCATION: database
+      DB_NAME: postgres
+    depends_on:
+      database:
+        condition: service_healthy
+      backend-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
   database:
     image: postgres:17-alpine
     command: [ "postgres", "-c", "max_connections=${POSTGRES_MAX_CONNECTIONS:-100}" ]

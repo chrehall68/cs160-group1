@@ -7,7 +7,6 @@ from routes.transactions import router as transactions_router
 from routes.atm import router as atm_router
 from routes.accounts import router as accounts_router
 from routes.transfers import router as transfers_router
-from scheduler import scheduler
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 
@@ -17,14 +16,7 @@ logger = logging.getLogger("uvicorn.error")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     create_db_and_tables()
-
-    logger.info("Starting APScheduler...")
-    if not scheduler.running:
-        scheduler.start()
-
     yield
-    if scheduler.running:
-        scheduler.shutdown()
 
 
 app = FastAPI(lifespan=lifespan)
