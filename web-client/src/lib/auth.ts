@@ -13,12 +13,36 @@ interface AuthSession {
   userId: number | null
 }
 
+const decodeJwtExpMs = (token: string): number | null => {
+  try {
+    const parts = token.split('.')
+    if (parts.length < 2) return null
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/')
+    const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=')
+    const claims = JSON.parse(atob(padded)) as { exp?: unknown }
+    return typeof claims.exp === 'number' ? claims.exp * 1000 : null
+  } catch {
+    return null
+  }
+}
+
+// Lenient: only treat as expired when we can read an `exp` claim that's in the
+// past. Tokens without a parseable `exp` are passed through to the server.
+const isTokenExpired = (token: string): boolean => {
+  const expMs = decodeJwtExpMs(token)
+  return expMs !== null && expMs <= Date.now()
+}
+
 const readStoredSession = (): AuthSession => {
   if (typeof window === 'undefined') {
     return { token: null, role: null, userId: null }
   }
 
   const token = window.localStorage.getItem(TOKEN_KEY)
+  if (!token || isTokenExpired(token)) {
+    return { token: null, role: null, userId: null }
+  }
+
   const roleValue = window.localStorage.getItem(ROLE_KEY)
   const userIdValue = window.localStorage.getItem(USER_ID_KEY)
   const role = roleValue === 'admin' || roleValue === 'user' ? roleValue : null
@@ -53,6 +77,27 @@ const notifyAuthChanged = () => {
   window.dispatchEvent(new Event(AUTH_CHANGED_EVENT))
 }
 
+let expiryTimer: ReturnType<typeof setTimeout> | null = null
+
+const scheduleExpiryClear = (token: string) => {
+  if (typeof window === 'undefined') return
+  if (expiryTimer !== null) {
+    clearTimeout(expiryTimer)
+    expiryTimer = null
+  }
+  const expMs = decodeJwtExpMs(token)
+  if (expMs === null) return
+  const delay = expMs - Date.now()
+  if (delay <= 0) {
+    clearAuthSession()
+    return
+  }
+  expiryTimer = setTimeout(() => {
+    expiryTimer = null
+    clearAuthSession()
+  }, delay)
+}
+
 export const setAuthSession = (token: string, role: Role, userId: number) => {
   if (typeof window === 'undefined') {
     return
@@ -61,6 +106,7 @@ export const setAuthSession = (token: string, role: Role, userId: number) => {
   window.localStorage.setItem(TOKEN_KEY, token)
   window.localStorage.setItem(ROLE_KEY, role)
   window.localStorage.setItem(USER_ID_KEY, String(userId))
+  scheduleExpiryClear(token)
   notifyAuthChanged()
 }
 
@@ -69,6 +115,10 @@ export const clearAuthSession = () => {
     return
   }
 
+  if (expiryTimer !== null) {
+    clearTimeout(expiryTimer)
+    expiryTimer = null
+  }
   window.localStorage.removeItem(TOKEN_KEY)
   window.localStorage.removeItem(ROLE_KEY)
   window.localStorage.removeItem(USER_ID_KEY)
@@ -80,6 +130,19 @@ export const isAuthenticated = () => Boolean(getStoredSession().token)
 export const isAdmin = () => getStoredSession().role === 'admin'
 
 export const getRole = () => getStoredSession().role
+
+// On module load, reconcile any token already in storage with its expiry:
+// drop it if expired, otherwise schedule the auto-clear timer.
+if (typeof window !== 'undefined') {
+  const storedToken = window.localStorage.getItem(TOKEN_KEY)
+  if (storedToken) {
+    if (isTokenExpired(storedToken)) {
+      clearAuthSession()
+    } else {
+      scheduleExpiryClear(storedToken)
+    }
+  }
+}
 
 export const useAuthSession = () =>
   useSyncExternalStore(
