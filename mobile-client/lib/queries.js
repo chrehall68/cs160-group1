@@ -41,6 +41,50 @@ export async function fetchAccounts() {
   return Array.isArray(data) ? data : (data.accounts ?? []);
 }
 
-export async function fetchTransactions(accountId) {
-  return apiRequest(`/transactions/${accountId}?page=1&limit=5`);
+export async function fetchAccount(accountId) {
+  return apiRequest(`/accounts/${accountId}`);
+}
+
+export async function fetchTransactions(accountId, page = 1, limit = 10) {
+  const params = new URLSearchParams({
+    page: String(page),
+    limit: String(limit),
+  });
+  return apiRequest(`/transactions/${accountId}?${params.toString()}`);
+}
+
+export async function fetchTransactionDetail(accountId, transactionId) {
+  return apiRequest(`/transactions/${accountId}/${transactionId}`);
+}
+
+export async function fetchRecurringPayments(accountId, page = 1, limit = 10) {
+  const params = new URLSearchParams({
+    page: String(page),
+    limit: String(limit),
+  });
+  return apiRequest(`/recurring/${accountId}?${params.toString()}`);
+}
+
+export async function fetchRecurringPaymentTransactions(
+  recurringPaymentId,
+  page = 1,
+  limit = 5,
+) {
+  const params = new URLSearchParams({
+    page: String(page),
+    limit: String(limit),
+  });
+  return apiRequest(
+    `/recurring/${recurringPaymentId}/transactions?${params.toString()}`,
+  );
+}
+
+export async function cancelRecurringPayment(recurringPaymentId) {
+  return apiRequest(`/recurring/${recurringPaymentId}/cancel`, {
+    method: "POST",
+  });
+}
+
+export async function closeAccount(accountId) {
+  return apiRequest(`/accounts/${accountId}`, { method: "DELETE" });
 }

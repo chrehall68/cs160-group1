@@ -11,7 +11,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { apiRequest } from "../lib/api";
 import { fetchAccounts } from "../lib/queries";
 
-export default function AccountsScreen() {
+export default function AccountsScreen({ navigation }) {
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [accountType, setAccountType] = useState("checking");
@@ -106,7 +106,16 @@ export default function AccountsScreen() {
           <Text style={styles.empty}>No accounts yet</Text>
         ) : (
           accounts.map((acc) => (
-            <View key={acc.account_id} style={styles.card}>
+            <TouchableOpacity
+              key={acc.account_id}
+              style={styles.card}
+              onPress={() =>
+                navigation.navigate("AccountDetail", {
+                  accountId: String(acc.account_id),
+                })
+              }
+              activeOpacity={0.75}
+            >
               <Text style={styles.cardTitle}>
                 {acc.type?.toUpperCase()} ACCOUNT
               </Text>
@@ -119,7 +128,7 @@ export default function AccountsScreen() {
               <Text style={styles.balance}>Balance: ${acc.balance}</Text>
 
               <Text>Status: {acc.status}</Text>
-            </View>
+            </TouchableOpacity>
           ))
         )}
       </View>
