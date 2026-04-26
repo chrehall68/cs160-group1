@@ -181,9 +181,7 @@ function InternalTransfer({ accounts, accountsLoading, reloadAccounts }) {
       return setError("Please select an account to transfer from.");
     if (!account) return setError("Please enter a destination account number.");
     if (!routing) return setError("Please enter a routing number.");
-    const amountNum = Number(amount);
-    if (!amount || isNaN(amountNum) || amountNum <= 0)
-      return setError("Please enter a valid amount.");
+    if (!amount) return setError("Please enter an amount.");
     if (isRecurring && !MMDDYYYY_RE.test(startDate))
       return setError("Please enter a start date in MM/DD/YYYY format.");
 
@@ -253,13 +251,12 @@ function InternalTransfer({ accounts, accountsLoading, reloadAccounts }) {
 
       <Text style={styles.label}>Routing Number</Text>
       <TextInput
-        placeholder="9-digit routing number"
+        placeholder="Enter routing number"
         placeholderTextColor="#999"
         value={routing}
         onChangeText={(v) => setRouting(digitsOnly(v))}
         style={styles.input}
         keyboardType="number-pad"
-        maxLength={9}
       />
 
       <Text style={styles.label}>Amount</Text>
@@ -359,9 +356,7 @@ function ExternalTransfer({ accounts, accountsLoading, reloadAccounts }) {
     setSuccess("");
 
     if (!destAccountId) return setError("Please select a destination account.");
-    const amountNum = Number(amount);
-    if (!amount || isNaN(amountNum) || amountNum <= 0)
-      return setError("Please enter a valid amount.");
+    if (!amount) return setError("Please enter an amount.");
 
     setLoading(true);
     let initResponse;

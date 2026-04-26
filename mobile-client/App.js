@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import { NavigationContainer } from '@react-navigation/native'
+import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { useState } from 'react'
 import { Text, TouchableOpacity } from 'react-native'
+import AccountDetailScreen from './screens/AccountDetailScreen'
 import AccountsScreen from './screens/AccountsScreen'
 import ATMScreen from './screens/ATMScreen'
 import DepositCheckScreen from './screens/DepositCheckScreen'
@@ -11,6 +13,19 @@ import SignupScreen from './screens/SignupScreen'
 import TransferScreen from './screens/TransferScreen'
 
 const Tab = createBottomTabNavigator()
+const AccountsStack = createNativeStackNavigator()
+
+function AccountsStackNavigator() {
+  return (
+    <AccountsStack.Navigator screenOptions={{ headerShown: false }}>
+      <AccountsStack.Screen name="AccountsList" component={AccountsScreen} />
+      <AccountsStack.Screen
+        name="AccountDetail"
+        component={AccountDetailScreen}
+      />
+    </AccountsStack.Navigator>
+  )
+}
 
 
 function Tabs({ onLogout }) {
@@ -46,7 +61,7 @@ function Tabs({ onLogout }) {
         },
       })}
     >
-      <Tab.Screen name="Accounts" component={AccountsScreen} />
+      <Tab.Screen name="Accounts" component={AccountsStackNavigator} />
       <Tab.Screen name="Transfer" component={TransferScreen} />
       <Tab.Screen name="Deposit Check" component={DepositCheckScreen} />
       <Tab.Screen name="ATM" component={ATMScreen} />
