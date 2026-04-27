@@ -99,19 +99,19 @@ def get_account_transactions(
         count = session.exec(count_stmt).one()
 
         pages = (count + limit - 1) // limit
-        results = [
+        responses = [
             TransactionResponse(
-                transaction_id=e[1].transaction_id,  # type: ignore
-                ledger_type=e[0].type,
-                transaction_type=e[1].transaction_type,
-                amount=e[1].amount,
-                currency=e[1].currency,
-                created_at=e[1].created_at,
+                transaction_id=e[1].transaction_id,  # type: ignore[index]
+                ledger_type=e[0].type,  # type: ignore[index]
+                transaction_type=e[1].transaction_type,  # type: ignore[index]
+                amount=e[1].amount,  # type: ignore[index]
+                currency=e[1].currency,  # type: ignore[index]
+                created_at=e[1].created_at,  # type: ignore[index]
             )
             for e in results
         ]
 
-        return {"transactions": results, "total_pages": pages}
+        return {"transactions": responses, "total_pages": pages}
 
     except Exception as e:
         session.rollback()
@@ -185,7 +185,7 @@ def get_all_transactions(
         for t in transactions:
             assert t.transaction_id
             transaction_ids.append(t.transaction_id)
-        account_ids_by_txn = {tid: [] for tid in transaction_ids}
+        account_ids_by_txn: dict[int, list[int]] = {tid: [] for tid in transaction_ids}
         if transaction_ids:
             link_rows = session.exec(
                 select(
@@ -202,7 +202,11 @@ def get_all_transactions(
         data = [
             {
                 **t.model_dump(mode="json"),
-                "account_ids": account_ids_by_txn.get(t.transaction_id, []),
+                "account_ids": (
+                    account_ids_by_txn.get(t.transaction_id, [])
+                    if t.transaction_id is not None
+                    else []
+                ),
             }
             for t in transactions
         ]
@@ -271,7 +275,7 @@ def get_transaction(
                 }
             case TransactionType.ONLINE_DEPOSIT:
                 # get the online deposit
-                stmt = select(OnlineDeposit).where(
+                stmt = select(OnlineDeposit).where(  # type: ignore[assignment]
                     OnlineDeposit.transaction_id == transaction_id
                 )
                 online_deposit = session.exec(stmt).one()
@@ -291,7 +295,7 @@ def get_transaction(
                 }
             case TransactionType.WITHDRAWAL:
                 # get the withdrawal
-                stmt = select(Withdraw).where(Withdraw.transaction_id == transaction_id)
+                stmt = select(Withdraw).where(Withdraw.transaction_id == transaction_id)  # type: ignore[assignment]
                 withdrawal = session.exec(stmt).one()
                 assert withdrawal
                 # get the ATM address
@@ -308,7 +312,7 @@ def get_transaction(
                 }
             case TransactionType.TRANSFER:
                 # get the transfer
-                stmt = select(Transfer).where(Transfer.transaction_id == transaction_id)
+                stmt = select(Transfer).where(Transfer.transaction_id == transaction_id)  # type: ignore[assignment]
                 transfer = session.exec(stmt).one()
                 assert transfer
                 return {"transaction": transaction, "transfer": transfer}

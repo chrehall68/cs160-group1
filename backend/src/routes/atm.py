@@ -79,7 +79,7 @@ async def helper(lat: float, lng: float, radius: int):
             r
             for r in chase_results
             if r["address"] not in seen_addresses
-            and (seen_addresses.add(r["address"]) or True)
+            and (seen_addresses.add(r["address"]) or True)  # type: ignore[func-returns-value]
         ]
 
         # round distance and convert to string
