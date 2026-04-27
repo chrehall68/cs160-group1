@@ -1,16 +1,8 @@
 from pydantic import BaseModel, field_validator
-from typing import Optional
 from datetime import datetime
 from decimal import Decimal
 
-
-class AddressRequest(BaseModel):
-    street: str
-    unit: Optional[str] = None
-    city: str
-    state: str
-    zipcode: str
-    country: str = "USA"
+from dtos.shared import AddressRequest
 
 
 class CreateAccountRequest(BaseModel):

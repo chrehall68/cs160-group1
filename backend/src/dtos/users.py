@@ -1,21 +1,7 @@
 from pydantic import BaseModel, EmailStr, field_validator, ConfigDict
 from datetime import date
-from typing import Optional
 
-
-class AddressRequest(BaseModel):
-    street: str
-    unit: Optional[str] = None
-    city: str
-    state: str
-    zipcode: str
-    country: str
-
-    @field_validator("zipcode")
-    def validate_zipcode(cls, v: str) -> str:
-        if not v.isdigit():
-            raise ValueError("Zip code must contain only digits")
-        return v
+from dtos.shared import AddressRequest
 
 
 class LoginRequest(BaseModel):
