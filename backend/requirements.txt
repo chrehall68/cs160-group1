@@ -26,11 +26,15 @@ idna==3.11
 iniconfig==2.3.0
 jinja2==3.1.6
 jmespath==1.1.0
+librt==0.9.0
 markdown-it-py==4.0.0
 markupsafe==3.0.3
 mdurl==0.1.2
+mypy==1.20.2
+mypy-extensions==1.1.0
 nulltype==2.3.1
 packaging==26.0
+pathspec==1.1.1
 plaid-python==38.4.0
 pluggy==1.6.0
 psycopg==3.3.3

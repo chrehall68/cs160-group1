@@ -1,0 +1,53 @@
+name: ESLint
+
+on:
+    push:
+        branches: ["main"]
+        paths:
+            - "web-client/**"
+            - "mobile-client/**"
+            - ".github/workflows/eslint.yml"
+    pull_request:
+        branches: ["main"]
+        paths:
+            - "web-client/**"
+            - "mobile-client/**"
+            - ".github/workflows/eslint.yml"
+
+permissions:
+    contents: read
+
+jobs:
+    web-client:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - name: Set up Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+            - name: Install dependencies
+              run: |
+                  cd web-client
+                  npm install
+            - name: Run ESLint
+              run: |
+                  cd web-client
+                  npm run lint
+
+    mobile-client:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - name: Set up Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+            - name: Install dependencies
+              run: |
+                  cd mobile-client
+                  npm install
+            - name: Run ESLint
+              run: |
+                  cd mobile-client
+                  npm run lint

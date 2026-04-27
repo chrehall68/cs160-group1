@@ -96,7 +96,7 @@ function RouteComponent() {
       {showDeletePopup && (
         <Popup
           title="Delete this user?"
-          description="Confirm that you want to delete this user account. This cannot be undone, and active accounts must be closed first."
+          description="Confirm that you want to delete this user account. This cannot be undone, and active accounts must be closed first. After deletion, the SSN on file cannot be used to register a new account."
           onClose={() => {
             deleteUserMutation.reset()
             setShowDeletePopup(false)
@@ -210,7 +210,8 @@ function RouteComponent() {
               </h2>
               <p className="mt-2 text-sm leading-7 text-[var(--sea-ink-soft)]">
                 This permanently removes your user account. The request will be
-                rejected if you still have active accounts.
+                rejected if you still have active accounts. After deletion, the
+                SSN on file cannot be used to register a new account.
               </p>
 
               {deleteError && (
