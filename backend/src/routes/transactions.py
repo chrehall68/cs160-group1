@@ -104,6 +104,8 @@ def get_account_transactions(
                 transaction_id=e[1].transaction_id,  # type: ignore[index]
                 ledger_type=e[0].type,  # type: ignore[index]
                 transaction_type=e[1].transaction_type,  # type: ignore[index]
+                status=e[1].status,  # type: ignore[index]
+                description=e[1].description,  # type: ignore[index]
                 amount=e[1].amount,  # type: ignore[index]
                 currency=e[1].currency,  # type: ignore[index]
                 created_at=e[1].created_at,  # type: ignore[index]

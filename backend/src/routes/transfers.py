@@ -156,6 +156,13 @@ def create_recurring_payment(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Next payment date must be today or later",
         )
+    # avoid scheduling a transfer if currently
+    # don't have enough money
+    if account.balance < request.amount:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Insufficient funds for payment",
+        )
 
     try:
         recurring = RecurringPayment(
@@ -350,6 +357,8 @@ def get_recurring_payment_transactions(
                 transaction_id=txn.transaction_id,  # type: ignore
                 ledger_type=ledger.type,
                 transaction_type=txn.transaction_type,
+                status=txn.status,
+                description=txn.description,
                 amount=txn.amount,
                 currency=txn.currency,
                 created_at=txn.created_at,

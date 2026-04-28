@@ -12,6 +12,8 @@ type TransactionType = {
   transaction_id: number
   ledger_type: 'debit' | 'credit'
   transaction_type: 'atm_deposit' | 'online_deposit' | 'withdrawal' | 'transfer'
+  status: 'pending' | 'completed' | 'failed'
+  description: string
   amount: number
   currency: string
   created_at: string // timestamp string

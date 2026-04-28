@@ -142,10 +142,25 @@ function TransactionDetailModal({ accountId, transactionId, onClose }) {
             {!!error && <Text style={styles.errorText}>{error}</Text>}
             {detail && (
               <>
-                <DetailRow label="Status" value={txn?.status} />
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Status</Text>
+                  <Text
+                    style={[
+                      styles.detailValue,
+                      txn?.status === "failed" && styles.detailValueFailed,
+                    ]}
+                  >
+                    {txn?.status}
+                  </Text>
+                </View>
                 <DetailRow label="Date" value={txn?.created_at} />
                 {!!txn?.description && (
-                  <DetailRow label="Description" value={txn.description} />
+                  <View style={styles.detailStack}>
+                    <Text style={styles.detailLabel}>Description</Text>
+                    <Text style={styles.detailStackValue}>
+                      {txn.description}
+                    </Text>
+                  </View>
                 )}
 
                 {detail.atm_deposit && (
@@ -284,31 +299,43 @@ function Transactions({ accountId }) {
         />
       )}
 
-      {transactions.map((t) => (
-        <TouchableOpacity
-          key={t.transaction_id}
-          style={styles.txnRow}
-          onPress={() => setSelectedId(t.transaction_id)}
-          activeOpacity={0.75}
-        >
-          <View style={{ flex: 1 }}>
-            <Text style={styles.txnType}>
-              {transactionTypeLabels[t.transaction_type] ?? t.transaction_type}
-            </Text>
-            <Text
-              style={[
-                styles.txnAmount,
-                t.ledger_type === "credit"
-                  ? styles.amountCredit
-                  : styles.amountDebit,
-              ]}
-            >
-              {t.ledger_type === "credit" ? "+" : "-"}${t.amount}
-            </Text>
-          </View>
-          <Text style={styles.txnDate}>Created at {t.created_at}</Text>
-        </TouchableOpacity>
-      ))}
+      {transactions.map((t) => {
+        const isFailed = t.status === "failed";
+        return (
+          <TouchableOpacity
+            key={t.transaction_id}
+            style={styles.txnRow}
+            onPress={() => setSelectedId(t.transaction_id)}
+            activeOpacity={0.75}
+          >
+            <View style={{ flex: 1 }}>
+              <View style={styles.txnHeaderRow}>
+                <Text style={styles.txnType}>
+                  {transactionTypeLabels[t.transaction_type] ?? t.transaction_type}
+                </Text>
+                {isFailed && (
+                  <View style={styles.failedPill}>
+                    <Text style={styles.failedPillText}>Failed</Text>
+                  </View>
+                )}
+              </View>
+              <Text
+                style={[
+                  styles.txnAmount,
+                  isFailed
+                    ? styles.amountFailed
+                    : t.ledger_type === "credit"
+                      ? styles.amountCredit
+                      : styles.amountDebit,
+                ]}
+              >
+                {isFailed ? "" : t.ledger_type === "credit" ? "+" : "-"}${t.amount}
+              </Text>
+            </View>
+            <Text style={styles.txnDate}>Created at {t.created_at}</Text>
+          </TouchableOpacity>
+        );
+      })}
 
       <Pager
         page={page}
@@ -368,18 +395,32 @@ function RecurringTransactions({ recurringPaymentId }) {
 
   return (
     <View style={{ gap: 8 }}>
-      {txns.map((t) => (
-        <View key={t.transaction_id} style={styles.recurringTxnRow}>
-          <Text style={styles.txnDate}>{t.created_at}</Text>
-          <Text
-            style={
-              t.ledger_type === "credit" ? styles.amountCredit : styles.amountDebit
-            }
-          >
-            {t.ledger_type === "credit" ? "+" : "-"}${t.amount}
-          </Text>
-        </View>
-      ))}
+      {txns.map((t) => {
+        const isFailed = t.status === "failed";
+        return (
+          <View key={t.transaction_id} style={styles.recurringTxnRow}>
+            <Text style={styles.txnDate}>{t.created_at}</Text>
+            <View style={styles.recurringTxnRight}>
+              {isFailed && (
+                <View style={styles.failedPill}>
+                  <Text style={styles.failedPillText}>Failed</Text>
+                </View>
+              )}
+              <Text
+                style={
+                  isFailed
+                    ? styles.amountFailed
+                    : t.ledger_type === "credit"
+                      ? styles.amountCredit
+                      : styles.amountDebit
+                }
+              >
+                {isFailed ? "" : t.ledger_type === "credit" ? "+" : "-"}${t.amount}
+              </Text>
+            </View>
+          </View>
+        );
+      })}
       <Pager
         page={page}
         numPages={numPages}
@@ -927,6 +968,33 @@ const styles = StyleSheet.create({
     color: "#B91C1C",
     fontWeight: "600",
   },
+  amountFailed: {
+    color: "#6B7A99",
+    textDecorationLine: "line-through",
+  },
+  txnHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 4,
+  },
+  failedPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
+    backgroundColor: "#FEE2E2",
+  },
+  failedPillText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#991B1B",
+    textTransform: "uppercase",
+  },
+  recurringTxnRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
 
   // recurring
   recurringCard: {
@@ -1040,6 +1108,19 @@ const styles = StyleSheet.create({
     color: "#1F2937",
     flexShrink: 1,
     textAlign: "right",
+  },
+  detailValueFailed: {
+    color: "#B91C1C",
+    textTransform: "capitalize",
+  },
+  detailStack: {
+    flexDirection: "column",
+    gap: 4,
+  },
+  detailStackValue: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#1F2937",
   },
   divider: {
     height: 1,
