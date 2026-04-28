@@ -711,9 +711,11 @@ def test_scheduler_records_failed_recurring_payment_when_funds_insufficient(clie
 
         # a FAILED transaction was recorded with the reason in the description
         txn = session.exec(
-            select(Transaction).join(
+            select(Transaction)
+            .join(
                 Transfer, Transfer.transaction_id == Transaction.transaction_id  # type: ignore[arg-type]
-            ).where(Transfer.recurring_payment_id == recurring_id)
+            )
+            .where(Transfer.recurring_payment_id == recurring_id)
         ).one()
         assert txn.status == TransactionStatus.FAILED
         assert "Insufficient funds" in txn.description
@@ -721,9 +723,7 @@ def test_scheduler_records_failed_recurring_payment_when_funds_insufficient(clie
     # the user sees the failed attempt in their transaction history
     history = client.get(f"/transactions/{account_id}")
     assert history.status_code == 200
-    failed_txns = [
-        t for t in history.json()["transactions"] if t["status"] == "failed"
-    ]
+    failed_txns = [t for t in history.json()["transactions"] if t["status"] == "failed"]
     assert len(failed_txns) == 1
     assert failed_txns[0]["transaction_type"] == "transfer"
     assert failed_txns[0]["amount"] == "5.00"
@@ -766,9 +766,11 @@ def test_scheduler_records_failed_recurring_payment_when_internal_payee_missing(
         assert payment.next_payment_date == date.today() + timedelta(days=7)
 
         txn = session.exec(
-            select(Transaction).join(
+            select(Transaction)
+            .join(
                 Transfer, Transfer.transaction_id == Transaction.transaction_id  # type: ignore[arg-type]
-            ).where(Transfer.recurring_payment_id == recurring_id)
+            )
+            .where(Transfer.recurring_payment_id == recurring_id)
         ).one()
         assert txn.status == TransactionStatus.FAILED
         assert "Payee account number not found" in txn.description
@@ -797,9 +799,11 @@ def test_scheduler_marks_failed_once_recurring_payment_completed(client):
         assert payment.completed_at is not None
 
         txn = session.exec(
-            select(Transaction).join(
+            select(Transaction)
+            .join(
                 Transfer, Transfer.transaction_id == Transaction.transaction_id  # type: ignore[arg-type]
-            ).where(Transfer.recurring_payment_id == recurring_id)
+            )
+            .where(Transfer.recurring_payment_id == recurring_id)
         ).one()
         assert txn.status == TransactionStatus.FAILED
 
