@@ -4,9 +4,21 @@ from fastapi.testclient import TestClient
 from sqlmodel import select, Session
 
 from dependencies.db import get_engine
-from models import RecurringFrequency, RecurringPayment, Transfer
+from models import (
+    RecurringFrequency,
+    RecurringPayment,
+    Transaction,
+    TransactionStatus,
+    Transfer,
+)
 from scheduler import process_recurring_payments
-from tests.shared import create_account, deposit_cash, get_account, register_user
+from tests.shared import (
+    create_account,
+    deposit_cash,
+    get_account,
+    register_user,
+    withdraw_cash,
+)
 
 
 def _future_date(days: int = 1) -> str:
@@ -200,6 +212,7 @@ def test_internal_transfer_rejects_inactive_internal_payee_account(client):
 def test_create_recurring_payment_succeeds_for_owned_active_account(client):
     register_user(client)
     account_id = create_account(client)
+    deposit_cash(client, account_id, "20.00")
 
     response = client.post(
         "/recurring",
@@ -231,6 +244,7 @@ def test_create_recurring_payment_rejects_other_users_account(client):
     with TestClient(client.app, base_url="https://testserver") as owner_client:
         register_user(owner_client)
         account_id = create_account(owner_client)
+        deposit_cash(owner_client, account_id, "20.00")
 
     with TestClient(client.app, base_url="https://testserver") as other_client:
         register_user(other_client)
@@ -248,6 +262,27 @@ def test_create_recurring_payment_rejects_other_users_account(client):
 
     assert response.status_code == 403
     assert response.json() == {"detail": "Account does not belong to user"}
+
+
+def test_create_recurring_payment_rejects_insufficient_funds(client):
+    register_user(client)
+    account_id = create_account(client)
+    deposit_cash(client, account_id, "5.00")
+
+    response = client.post(
+        "/recurring",
+        json={
+            "from_account_id": account_id,
+            "payee_account_number": "9999999999",
+            "payee_routing_number": "021000021",
+            "amount": "10.00",
+            "frequency": "weekly",
+            "next_payment_date": _future_date(),
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Insufficient funds for payment"}
 
 
 def test_create_recurring_payment_rejects_missing_account(client):
@@ -343,6 +378,10 @@ def _create_recurring(
     payee_account_number: str = "9999999999",
     payee_routing_number: str = "111000111",
 ) -> int:
+    # ensure the account has at least `amount` so we pass the up-front
+    # balance check on /recurring. Tests that need a different post-create
+    # balance can deposit/withdraw separately.
+    deposit_cash(client, account_id, amount)
     response = client.post(
         "/recurring",
         json={
@@ -465,6 +504,7 @@ def test_cancel_recurring_payment_marks_canceled_and_skips_scheduler(client):
         frequency="weekly",
         next_payment_date=date.today().isoformat(),
     )
+    balance_before = get_account(client, account_id)["balance"]
 
     response = client.post(f"/recurring/{recurring_id}/cancel")
     assert response.status_code == 200
@@ -472,7 +512,7 @@ def test_cancel_recurring_payment_marks_canceled_and_skips_scheduler(client):
 
     # Running the scheduler should NOT execute the canceled payment.
     process_recurring_payments()
-    assert get_account(client, account_id)["balance"] == "50.00"
+    assert get_account(client, account_id)["balance"] == balance_before
 
     with Session(get_engine()) as session:
         row = session.get(RecurringPayment, recurring_id)
@@ -643,6 +683,127 @@ def test_scheduler_advances_weekly_recurring_payment_and_links_transfer(client):
         assert transfer.recurring_payment_id == recurring_id
 
 
+def test_scheduler_records_failed_recurring_payment_when_funds_insufficient(client):
+    register_user(client)
+    account_id = create_account(client)
+    recurring_id = _create_recurring(
+        client,
+        account_id,
+        amount="5.00",
+        frequency="weekly",
+        next_payment_date=date.today().isoformat(),
+    )
+    # drain the account so the scheduler hits "Insufficient funds" at fire
+    # time. Up-front balance check on /recurring would reject this otherwise.
+    withdraw_cash(client, account_id, "5.00")
+
+    process_recurring_payments()
+
+    # balance untouched by the (failed) scheduler run
+    assert get_account(client, account_id)["balance"] == "0.00"
+
+    # next_payment_date advanced even though the attempt failed
+    with Session(get_engine()) as session:
+        payment = session.get(RecurringPayment, recurring_id)
+        assert payment is not None
+        assert payment.next_payment_date == date.today() + timedelta(days=7)
+        assert payment.completed_at is None
+
+        # a FAILED transaction was recorded with the reason in the description
+        txn = session.exec(
+            select(Transaction).join(
+                Transfer, Transfer.transaction_id == Transaction.transaction_id  # type: ignore[arg-type]
+            ).where(Transfer.recurring_payment_id == recurring_id)
+        ).one()
+        assert txn.status == TransactionStatus.FAILED
+        assert "Insufficient funds" in txn.description
+
+    # the user sees the failed attempt in their transaction history
+    history = client.get(f"/transactions/{account_id}")
+    assert history.status_code == 200
+    failed_txns = [
+        t for t in history.json()["transactions"] if t["status"] == "failed"
+    ]
+    assert len(failed_txns) == 1
+    assert failed_txns[0]["transaction_type"] == "transfer"
+    assert failed_txns[0]["amount"] == "5.00"
+    assert "Insufficient funds" in failed_txns[0]["description"]
+
+    # the failed attempt also shows up in the recurring payment's transaction list
+    recurring_history = client.get(f"/recurring/{recurring_id}/transactions")
+    assert recurring_history.status_code == 200
+    recurring_txns = recurring_history.json()["transactions"]
+    assert len(recurring_txns) == 1
+    assert recurring_txns[0]["status"] == "failed"
+
+
+def test_scheduler_records_failed_recurring_payment_when_internal_payee_missing(client):
+    register_user(client)
+    account_id = create_account(client)
+    deposit_cash(client, account_id, "50.00")
+    # routing matches our internal routing, but account doesn't exist
+    from constants import ROUTING_NUMBER
+
+    recurring_id = _create_recurring(
+        client,
+        account_id,
+        amount="5.00",
+        frequency="weekly",
+        next_payment_date=date.today().isoformat(),
+        payee_account_number="0000000000",
+        payee_routing_number=ROUTING_NUMBER,
+    )
+    balance_before = get_account(client, account_id)["balance"]
+
+    process_recurring_payments()
+
+    # balance untouched (process_transfer rolled back the speculative debit)
+    assert get_account(client, account_id)["balance"] == balance_before
+
+    with Session(get_engine()) as session:
+        payment = session.get(RecurringPayment, recurring_id)
+        assert payment is not None
+        assert payment.next_payment_date == date.today() + timedelta(days=7)
+
+        txn = session.exec(
+            select(Transaction).join(
+                Transfer, Transfer.transaction_id == Transaction.transaction_id  # type: ignore[arg-type]
+            ).where(Transfer.recurring_payment_id == recurring_id)
+        ).one()
+        assert txn.status == TransactionStatus.FAILED
+        assert "Payee account number not found" in txn.description
+
+
+def test_scheduler_marks_failed_once_recurring_payment_completed(client):
+    register_user(client)
+    account_id = create_account(client)
+    recurring_id = _create_recurring(
+        client,
+        account_id,
+        amount="5.00",
+        frequency="once",
+        next_payment_date=date.today().isoformat(),
+    )
+    # drain so the ONCE attempt fails when the scheduler fires
+    withdraw_cash(client, account_id, "5.00")
+
+    process_recurring_payments()
+
+    with Session(get_engine()) as session:
+        payment = session.get(RecurringPayment, recurring_id)
+        assert payment is not None
+        # ONCE payments are marked completed even when they fail, so the
+        # scheduler doesn't keep re-firing them
+        assert payment.completed_at is not None
+
+        txn = session.exec(
+            select(Transaction).join(
+                Transfer, Transfer.transaction_id == Transaction.transaction_id  # type: ignore[arg-type]
+            ).where(Transfer.recurring_payment_id == recurring_id)
+        ).one()
+        assert txn.status == TransactionStatus.FAILED
+
+
 def test_scheduler_marks_once_recurring_payment_completed_preserves_row(client):
     register_user(client)
     account_id = create_account(client)
@@ -656,6 +817,7 @@ def test_scheduler_marks_once_recurring_payment_completed_preserves_row(client):
     )
 
     process_recurring_payments()
+    balance_after_first_run = get_account(client, account_id)["balance"]
 
     with Session(get_engine()) as session:
         payment = session.get(RecurringPayment, recurring_id)
@@ -665,4 +827,4 @@ def test_scheduler_marks_once_recurring_payment_completed_preserves_row(client):
 
     # second scheduler tick should NOT re-fire a completed payment
     process_recurring_payments()
-    assert get_account(client, account_id)["balance"] == "15.00"
+    assert get_account(client, account_id)["balance"] == balance_after_first_run
