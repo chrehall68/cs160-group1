@@ -4,7 +4,7 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, field_validator
 
-from models import LedgerType, RecurringFrequency, TransactionType
+from models import LedgerType, RecurringFrequency, TransactionStatus, TransactionType
 
 
 class InternalTransferRequest(BaseModel):
@@ -59,6 +59,8 @@ class TransactionResponse(BaseModel):
     transaction_id: int
     ledger_type: LedgerType
     transaction_type: TransactionType
+    status: TransactionStatus
+    description: str
     amount: Decimal
     currency: str
     created_at: datetime

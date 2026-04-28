@@ -103,7 +103,7 @@ The signed APK lands at `./out/app-release.apk`. Note that you must uninstall an
 To run the web client, backend, and database together in development mode:
 
 First, make sure you create a `.env` file with your Google API key,
-Plaid Client ID, and Plaid (Sandbox) Secret.
+Plaid Client ID, Plaid (Sandbox) Secret, and AWS credentials.
 
 Example:
 
@@ -112,6 +112,10 @@ Example:
 GOOGLE_API_KEY=<YOUR_GOOGLE_API_KEY>
 PLAID_CLIENT_ID=<YOUR_PLAID_CLIENT_ID>
 PLAID_SECRET=<YOUR_PLAID_SECRET>
+AWS_S3_BUCKET=<YOUR_S3_BUCKET>
+AWS_ACCESS_KEY_ID=<YOUR_AWS_ACCESS_KEY_ID>
+AWS_SECRET_ACCESS_KEY=<YOUR_AWS_SECRET_ACCESS_KEY>
+AWS_DEFAULT_REGION=<YOUR_AWS_DEFAULT_REGION>
 ```
 
 Then, you can run:

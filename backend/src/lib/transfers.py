@@ -35,23 +35,46 @@ def process_recurring_payment(payment: RecurringPayment, session: Session):
     """
     Process a stored recurring payment and persist the resulting records.
 
-    TODO - it would be nice to store the success / failure message
-    and maybe limit the amount of retries we do on a failing payment
+    On success, a COMPLETED transfer transaction is recorded.
+    On a TransferException, a FAILED transaction is recorded instead, with the
+    reason captured in the transaction's description so it shows up in history.
+    Either way, the recurring payment's schedule is advanced.
     """
 
-    # recurring payment is just a regular transfer
-    process_transfer(
-        payment.from_account_id,
-        payment.payee_account_number,
-        payment.payee_routing_number,
-        payment.amount,
-        "Recurring Payment",
-        session,
-        commit=False,
-        recurring_payment_id=payment.recurring_payment_id,
-    )
+    # capture identifiers up front so we can recover after a rollback
+    payment_id = payment.recurring_payment_id
+    assert payment_id is not None
+    from_account_id = payment.from_account_id
+    payee_account_number = payment.payee_account_number
+    payee_routing_number = payment.payee_routing_number
+    amount = payment.amount
 
-    # then, update status
+    try:
+        process_transfer(
+            from_account_id,
+            payee_account_number,
+            payee_routing_number,
+            amount,
+            "Recurring Payment",
+            session,
+            commit=False,
+            recurring_payment_id=payment_id,
+        )
+    except TransferException as e:
+        session.rollback()
+        on_recurring_failure(
+            from_account_id=from_account_id,
+            payee_account_number=payee_account_number,
+            payee_routing_number=payee_routing_number,
+            amount=amount,
+            recurring_payment_id=payment_id,
+            reason=e.reason,
+            session=session,
+        )
+
+    # re-fetch before mutating because we may have rolled back
+    payment = session.get(RecurringPayment, payment_id)  # type: ignore
+    assert payment is not None
     if payment.frequency != RecurringFrequency.ONCE:
         payment.next_payment_date = (
             payment.next_payment_date + DELTAS[payment.frequency]
@@ -60,6 +83,57 @@ def process_recurring_payment(payment: RecurringPayment, session: Session):
         payment.completed_at = datetime.now(timezone.utc)
     session.add(payment)
     session.commit()
+
+
+def on_recurring_failure(
+    from_account_id: int,
+    payee_account_number: str,
+    payee_routing_number: str,
+    amount: Decimal,
+    recurring_payment_id: Optional[int],
+    reason: str,
+    session: Session,
+):
+    """
+    Records the failure of a recurring payment, complete with the
+    reason, so that it shows up in the user's history.
+    """
+    from_account = session.get(Account, from_account_id)
+    assert from_account is not None
+
+    transaction = Transaction(
+        accounts=[from_account],
+        transaction_type=TransactionType.TRANSFER,
+        amount=amount,
+        currency="USD",
+        status=TransactionStatus.FAILED,
+        description=f"Recurring Payment failed: {reason}",
+        created_at=datetime.now(timezone.utc),
+    )
+    session.add(transaction)
+    session.flush()
+    assert transaction.transaction_id is not None
+
+    session.add(
+        Transfer(
+            transaction_id=transaction.transaction_id,
+            from_account_number=str(from_account.account_number),
+            from_routing_number=str(from_account.routing_number),
+            to_account_number=payee_account_number,
+            to_routing_number=payee_routing_number,
+            recurring_payment_id=recurring_payment_id,
+        )
+    )
+    # add the ledger entry only to the from account
+    # since the to account doesn't need to know that the from account
+    # failed to make the transfer
+    session.add(
+        LedgerEntry(
+            transaction_id=transaction.transaction_id,
+            account_id=from_account_id,
+            type=LedgerType.DEBIT,
+        )
+    )
 
 
 def process_transfer(

@@ -58,6 +58,8 @@ def test_get_account_transactions_returns_most_recent_first_with_pagination(clie
             "transaction_id": second_page_body["transactions"][0]["transaction_id"],
             "ledger_type": "credit",
             "transaction_type": "atm_deposit",
+            "status": "completed",
+            "description": "",
             "amount": "100.00",
             "currency": "USD",
             "created_at": second_page_body["transactions"][0]["created_at"],

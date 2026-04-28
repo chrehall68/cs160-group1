@@ -72,16 +72,23 @@ function TransactionDetailPopup({
       )}
       {detail && (
         <div className="space-y-3 text-sm">
-          <div className="flex justify-between">
+          <div className="flex justify-between gap-4">
             <span className="text-[var(--sea-ink-soft)]">Status</span>
-            <span className="font-medium">{txn?.status}</span>
+            <span
+              className={clsx(
+                'font-medium capitalize',
+                txn?.status === 'failed' && 'text-red-700',
+              )}
+            >
+              {txn?.status}
+            </span>
           </div>
-          <div className="flex justify-between">
+          <div className="flex justify-between gap-4">
             <span className="text-[var(--sea-ink-soft)]">Date</span>
             <span className="font-medium">{txn?.created_at}</span>
           </div>
           {txn?.description && (
-            <div className="flex justify-between">
+            <div className="flex flex-col gap-1">
               <span className="text-[var(--sea-ink-soft)]">Description</span>
               <span className="font-medium">{txn.description}</span>
             </div>
@@ -205,6 +212,7 @@ function Transaction({
   transaction: TransactionType
   onSelect: (id: number) => void
 }) {
+  const isFailed = transaction.status === 'failed'
   return (
     <button
       type="button"
@@ -212,10 +220,21 @@ function Transaction({
       className="w-full text-left flex flex-row justify-between items-center rounded-lg bg-[var(--surface-strong)] p-6 shadow-md hover:bg-[var(--surface-strong)]/80 transition-colors cursor-pointer"
     >
       <div className="flex flex-col gap-1">
-        <p className="text-sm font-medium text-(--sea-ink)">
-          {transactionTypeLabels[transaction.transaction_type]}
-        </p>
-        {transaction.ledger_type == 'credit' ? (
+        <div className="flex items-center gap-2">
+          <p className="text-sm font-medium text-(--sea-ink)">
+            {transactionTypeLabels[transaction.transaction_type]}
+          </p>
+          {isFailed && (
+            <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold uppercase text-red-800">
+              Failed
+            </span>
+          )}
+        </div>
+        {isFailed ? (
+          <p className="text-(--sea-ink-soft) line-through">
+            {'$' + transaction.amount}
+          </p>
+        ) : transaction.ledger_type == 'credit' ? (
           <p className="text-green-700">+{'$' + transaction.amount}</p>
         ) : (
           <p className="text-red-700">-{'$' + transaction.amount}</p>
@@ -360,21 +379,36 @@ function RecurringTransactions({
   return (
     <div className="space-y-2">
       <ul className="space-y-2">
-        {txns.map((t) => (
-          <li
-            key={t.transaction_id}
-            className="flex items-center justify-between rounded bg-(--surface) p-3 text-sm"
-          >
-            <span className="text-(--sea-ink-soft)">{t.created_at}</span>
-            <span
-              className={
-                t.ledger_type === 'credit' ? 'text-green-700' : 'text-red-700'
-              }
+        {txns.map((t) => {
+          const isFailed = t.status === 'failed'
+          return (
+            <li
+              key={t.transaction_id}
+              className="flex items-center justify-between gap-3 rounded bg-(--surface) p-3 text-sm"
             >
-              {t.ledger_type === 'credit' ? '+' : '-'}${t.amount}
-            </span>
-          </li>
-        ))}
+              <span className="text-(--sea-ink-soft)">{t.created_at}</span>
+              <div className="flex items-center gap-2">
+                {isFailed && (
+                  <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold uppercase text-red-800">
+                    Failed
+                  </span>
+                )}
+                <span
+                  className={
+                    isFailed
+                      ? 'text-(--sea-ink-soft) line-through'
+                      : t.ledger_type === 'credit'
+                        ? 'text-green-700'
+                        : 'text-red-700'
+                  }
+                >
+                  {isFailed ? '' : t.ledger_type === 'credit' ? '+' : '-'}$
+                  {t.amount}
+                </span>
+              </div>
+            </li>
+          )
+        })}
       </ul>
       {numPages > 1 && (
         <div className="flex items-center justify-end gap-3">
