@@ -101,6 +101,8 @@ function InternalTransfer() {
 
     setFormError('')
     setSuccess('')
+    transferMutation.reset()
+    recurringTransferMutation.reset()
 
     if (!selectedAccountId) {
       setFormError('Please enter a valid account.')
