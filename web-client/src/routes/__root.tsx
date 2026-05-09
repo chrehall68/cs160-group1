@@ -7,6 +7,7 @@ import Footer from '@/components/Footer'
 import Header from '@/components/Header'
 import { useAuthSession } from '@/lib/auth'
 import { queryClient } from '@/lib/query-client'
+import 'react-day-picker/style.css'
 import '../styles.css'
 
 export const Route = createRootRoute({

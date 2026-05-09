@@ -1,3 +1,4 @@
+import DatePicker from '@/components/DatePicker'
 import { DecimalInput, IntegerInput } from '@/components/Inputs'
 import { apiRequest, getErrorMessage } from '@/lib/api'
 import { isAdmin, isAuthenticated } from '@/lib/auth'
@@ -5,7 +6,7 @@ import { fetchAccounts, queryKeys } from '@/lib/queries'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import clsx from 'clsx'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import type { PlaidLinkOnSuccess, PlaidLinkOptions } from 'react-plaid-link'
 import { usePlaidLink } from 'react-plaid-link'
 
@@ -38,6 +39,12 @@ function InternalTransfer() {
     queryKey: queryKeys.accounts,
     queryFn: fetchAccounts,
   })
+
+  const startDateBounds = useMemo(() => {
+    const today = new Date()
+    const maxDate = new Date(9999, 11, 31)
+    return { minDate: today, maxDate }
+  }, [])
 
   // display initial data
   useEffect(() => {
@@ -207,12 +214,13 @@ function InternalTransfer() {
 
           <div>
             <label className="block text-sm font-medium">Start Date:</label>
-            <input
-              type="date"
+            <DatePicker
               value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="mt-1 w-full rounded border px-3 py-2"
-              required={isRecurring}
+              onChange={setStartDate}
+              minDate={startDateBounds.minDate}
+              maxDate={startDateBounds.maxDate}
+              placeholder="Select start date"
+              yearInput
             />
           </div>
         </div>

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   ScrollView,
   Text,
@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native'
+import DatePickerField from '../components/DatePickerField'
 import { signup } from '../lib/queries'
 
 export default function SignupScreen({ goToLogin, onLogin }) {
@@ -39,17 +40,20 @@ export default function SignupScreen({ goToLogin, onLogin }) {
 
   const digitsOnly = (value) => value.replace(/\D/g, '')
 
-  const formatDOB = (value) => {
-    const digits = value.replace(/\D/g, '').slice(0, 8)
-
-    if (digits.length >= 5) {
-      return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`
-    } else if (digits.length >= 3) {
-      return `${digits.slice(0, 2)}/${digits.slice(2)}`
-    }
-
-    return digits
-  }
+  const dobBounds = useMemo(() => {
+    const today = new Date()
+    const min = new Date(
+      today.getFullYear() - 150,
+      today.getMonth(),
+      today.getDate(),
+    )
+    const max = new Date(
+      today.getFullYear() - 18,
+      today.getMonth(),
+      today.getDate(),
+    )
+    return { minDate: min, maxDate: max, defaultDate: max }
+  }, [])
 
   const formatDOBForAPI = (dob) => {
     const [m, d, y] = dob.split('/')
@@ -142,12 +146,14 @@ export default function SignupScreen({ goToLogin, onLogin }) {
                 <Input half label="Last Name" value={form.lastName} onChange={(v) => update('lastName', v)} />
               </Row>
 
-              <Input
-                label="Date of Birth (MM/DD/YYYY)"
+              <DatePickerField
+                label="Date of Birth"
                 value={form.dob}
-                onChange={(v) => update('dob', formatDOB(v))}
-                keyboardType="number-pad"
-                maxLength={10}
+                onChange={(v) => update('dob', v)}
+                minDate={dobBounds.minDate}
+                maxDate={dobBounds.maxDate}
+                defaultDate={dobBounds.defaultDate}
+                placeholder="Select your date of birth"
               />
 
               <Input

@@ -5,7 +5,8 @@ import {
   redirect,
   useRouter,
 } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import DatePicker from '@/components/DatePicker'
 import { apiRequest, getErrorMessage } from '@/lib/api'
 import { isAuthenticated, setAuthSession } from '@/lib/auth'
 
@@ -47,6 +48,27 @@ function SignUp() {
   const [country, setCountry] = useState('USA')
 
   const [error, setError] = useState<string | null>(null)
+
+  const dobBounds = useMemo(() => {
+    const today = new Date()
+    const minDate = new Date(
+      today.getFullYear() - 150,
+      today.getMonth(),
+      today.getDate(),
+    )
+    const maxDate = new Date(
+      today.getFullYear() - 18,
+      today.getMonth(),
+      today.getDate(),
+    )
+    const defaultMonth = new Date(
+      today.getFullYear() - 18,
+      today.getMonth(),
+      1,
+    )
+    return { minDate, maxDate, defaultMonth }
+  }, [])
+
   const signupMutation = useMutation({
     mutationFn: () =>
       apiRequest<SignupResponse>('/api/user', {
@@ -212,12 +234,14 @@ function SignUp() {
 
           <div>
             <label className="block text-sm font-medium">Date of Birth</label>
-            <input
-              type="date"
+            <DatePicker
               value={dateOfBirth}
-              onChange={(e) => setDateOfBirth(e.target.value)}
-              className="mt-1 w-full rounded border px-3 py-2"
-              required
+              onChange={setDateOfBirth}
+              minDate={dobBounds.minDate}
+              maxDate={dobBounds.maxDate}
+              defaultMonth={dobBounds.defaultMonth}
+              placeholder="Select your date of birth"
+              captionLayout="dropdown"
             />
           </div>
 

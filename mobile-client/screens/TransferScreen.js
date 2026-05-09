@@ -1,5 +1,5 @@
 import { useFocusEffect } from "@react-navigation/native";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Button,
@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import DatePickerField from "../components/DatePickerField";
 import PageLayout from "../components/PageLayout";
 import { apiRequest } from "../lib/api";
 import { create, open } from "../lib/plaidLink";
@@ -80,18 +81,6 @@ const FREQUENCIES = [
   { value: "biweekly", label: "Biweekly" },
   { value: "monthly", label: "Monthly" },
 ];
-
-const MMDDYYYY_RE = /^\d{2}\/\d{2}\/\d{4}$/;
-
-function formatMMDDYYYY(value) {
-  const digits = value.replace(/\D/g, "").slice(0, 8);
-  if (digits.length >= 5) {
-    return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
-  } else if (digits.length >= 3) {
-    return `${digits.slice(0, 2)}/${digits.slice(2)}`;
-  }
-  return digits;
-}
 
 function mmddyyyyToISO(value) {
   const [m, d, y] = value.split("/");
@@ -167,6 +156,12 @@ function InternalTransfer({ accounts, accountsLoading, reloadAccounts }) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  const startDateBounds = useMemo(() => {
+    const today = new Date();
+    const max = new Date(9999, 11, 31);
+    return { minDate: today, maxDate: max };
+  }, []);
+
   useEffect(() => {
     if (!fromAccountId && accounts.length) {
       setFromAccountId(accounts[0].account_id);
@@ -182,8 +177,8 @@ function InternalTransfer({ accounts, accountsLoading, reloadAccounts }) {
     if (!account) return setError("Please enter a destination account number.");
     if (!routing) return setError("Please enter a routing number.");
     if (!amount) return setError("Please enter an amount.");
-    if (isRecurring && !MMDDYYYY_RE.test(startDate))
-      return setError("Please enter a start date in MM/DD/YYYY format.");
+    if (isRecurring && !startDate)
+      return setError("Please select a start date.");
 
     setLoading(true);
     try {
@@ -289,15 +284,13 @@ function InternalTransfer({ accounts, accountsLoading, reloadAccounts }) {
             onChange={setFrequency}
           />
 
-          <Text style={styles.label}>Start Date (MM/DD/YYYY)</Text>
-          <TextInput
-            placeholder="MM/DD/YYYY"
-            placeholderTextColor="#999"
+          <DatePickerField
+            label="Start Date"
             value={startDate}
-            onChangeText={(v) => setStartDate(formatMMDDYYYY(v))}
-            style={styles.input}
-            keyboardType="number-pad"
-            maxLength={10}
+            onChange={setStartDate}
+            minDate={startDateBounds.minDate}
+            maxDate={startDateBounds.maxDate}
+            placeholder="Select start date"
           />
         </View>
       )}
