@@ -35,6 +35,9 @@ Runs on:
 ```
 http://localhost:3000
 ```
+>⚠️ Note: This starts the frontend only.
+>Features that require the backend (account signup, login, transfers, etc.) will return errors.
+>To run the full system with backend and database, see Run All Services with Docker Compose.
 
 ### To Run Mobile Client
 
@@ -49,6 +52,10 @@ Then:
 - Press `w` for web preview
 - Press `a` for Android emulator
 - Or scan QR code with Expo Go
+
+>⚠️ Note: This starts the frontend only.
+>Features that require the backend (account signup, login, transfers, etc.) will return errors.
+>To run the full system with backend and database, see Run All Services with Docker Compose.
 
 ### To Run the Mobile Client with Docker Compose
 
@@ -70,6 +77,10 @@ Scan the QR code that appears in the logs with Expo Go or the camera app on your
 > and install the release APK via
 > [Dockerfile.apk](mobile-client/Dockerfile.apk) (see the next section); that
 > build has the Plaid native module compiled in.
+
+>⚠️ Note: This starts the frontend only.
+>Features that require the backend (account signup, login, transfers, etc.) will return errors.
+>To run the full system with backend and database, see Run All Services with Docker Compose. 
 
 ### To Build the Mobile Client APK
 
