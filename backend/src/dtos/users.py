@@ -27,13 +27,19 @@ class RegisterRequest(BaseModel):
     @field_validator("date_of_birth")
     @classmethod
     def validate_dob_18_years_ago(cls, v: date) -> date:
-        """Validate that date of birth is at least 18 years in the past."""
+        """Validate that date of birth is at least 18 years in the past and no more than 150 years."""
         from datetime import datetime, timezone
 
         today = date.today()
         age = today.year - v.year - ((today.month, today.day) < (v.month, v.day))
         if age < 18:
             raise ValueError("User must be at least 18 years old")
+        if age > 150:
+            # not enforcing this in db since what if a user
+            # was 149 years old on signup and then is now 150 and still living?
+            # that would make the row invalid despite still representing a valid user
+            # so we just check on signup
+            raise ValueError("User must be no more than 150 years old at signup")
         return v
 
     @field_validator("phone")

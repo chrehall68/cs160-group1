@@ -69,6 +69,20 @@ def test_register_rejects_user_younger_than_18(client):
     assert body["detail"][0]["msg"] == "Value error, User must be at least 18 years old"
 
 
+def test_register_rejects_user_older_than_150(client):
+    payload = make_register_payload()
+    today = date.today()
+    overage_dob = today.replace(year=today.year - 151).isoformat()
+
+    response = client.post("/user", json={**payload, "date_of_birth": overage_dob})
+
+    assert response.status_code == 422
+
+    body = response.json()
+    assert body["detail"][0]["loc"] == ["body", "date_of_birth"]
+    assert body["detail"][0]["msg"] == "Value error, User must be no more than 150 years old at signup"
+
+
 def test_register_rejects_phone_number_with_wrong_length(client):
     payload = make_register_payload()
 
