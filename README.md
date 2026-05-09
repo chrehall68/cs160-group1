@@ -27,7 +27,7 @@ The system follows a 3-tier architecture:
 ```bash
 cd web-client
 npm install
-npm start
+npm run dev
 ```
 
 Runs on:
