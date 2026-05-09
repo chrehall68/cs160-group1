@@ -80,7 +80,10 @@ def test_register_rejects_user_older_than_150(client):
 
     body = response.json()
     assert body["detail"][0]["loc"] == ["body", "date_of_birth"]
-    assert body["detail"][0]["msg"] == "Value error, User must be no more than 150 years old at signup"
+    assert (
+        body["detail"][0]["msg"]
+        == "Value error, User must be no more than 150 years old at signup"
+    )
 
 
 def test_register_rejects_phone_number_with_wrong_length(client):
