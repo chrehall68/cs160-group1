@@ -7,20 +7,10 @@ import {
   StyleSheet,
   TouchableOpacity,
   KeyboardAvoidingView,
-  Modal,
-  Pressable,
   Platform,
 } from 'react-native'
-import DateTimePicker, { useDefaultStyles } from 'react-native-ui-datepicker'
+import DatePickerField from '../components/DatePickerField'
 import { signup } from '../lib/queries'
-
-const pad = (n) => String(n).padStart(2, '0')
-
-const toDate = (d) => {
-  if (d instanceof Date) return d
-  if (d && typeof d.toDate === 'function') return d.toDate()
-  return new Date(d)
-}
 
 export default function SignupScreen({ goToLogin, onLogin }) {
   const [form, setForm] = useState({
@@ -43,7 +33,6 @@ export default function SignupScreen({ goToLogin, onLogin }) {
 
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [dobPickerOpen, setDobPickerOpen] = useState(false)
 
   const update = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -58,17 +47,13 @@ export default function SignupScreen({ goToLogin, onLogin }) {
       today.getMonth(),
       today.getDate(),
     )
-    return { minDate: min, maxDate: today }
+    const max = new Date(
+      today.getFullYear() - 18,
+      today.getMonth(),
+      today.getDate(),
+    )
+    return { minDate: min, maxDate: max, defaultDate: max }
   }, [])
-
-  // form.dob is stored as MM/DD/YYYY; expose a Date for the picker
-  const dobDate = (() => {
-    const [m, d, y] = form.dob.split('/')
-    if (!m || !d || !y) return undefined
-    return new Date(Number(y), Number(m) - 1, Number(d))
-  })()
-
-  const datepickerStyles = useDefaultStyles()
 
   const formatDOBForAPI = (dob) => {
     const [m, d, y] = dob.split('/')
@@ -161,17 +146,15 @@ export default function SignupScreen({ goToLogin, onLogin }) {
                 <Input half label="Last Name" value={form.lastName} onChange={(v) => update('lastName', v)} />
               </Row>
 
-              <View style={styles.field}>
-                <Text style={styles.label}>Date of Birth</Text>
-                <TouchableOpacity
-                  style={styles.input}
-                  onPress={() => setDobPickerOpen(true)}
-                >
-                  <Text style={{ color: form.dob ? '#000' : '#999' }}>
-                    {form.dob || 'Select your date of birth'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
+              <DatePickerField
+                label="Date of Birth"
+                value={form.dob}
+                onChange={(v) => update('dob', v)}
+                minDate={dobBounds.minDate}
+                maxDate={dobBounds.maxDate}
+                defaultDate={dobBounds.defaultDate}
+                placeholder="Select your date of birth"
+              />
 
               <Input
                 label="Email"
@@ -234,38 +217,6 @@ export default function SignupScreen({ goToLogin, onLogin }) {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-
-      <Modal
-        visible={dobPickerOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setDobPickerOpen(false)}
-      >
-        <Pressable
-          style={styles.modalBackdrop}
-          onPress={() => setDobPickerOpen(false)}
-        >
-          <Pressable style={styles.modalCard}>
-            <DateTimePicker
-              mode="single"
-              date={dobDate}
-              minDate={dobBounds.minDate}
-              maxDate={dobBounds.maxDate}
-              initialView="year"
-              onChange={({ date }) => {
-                if (!date) return
-                const d = toDate(date)
-                update(
-                  'dob',
-                  `${pad(d.getMonth() + 1)}/${pad(d.getDate())}/${d.getFullYear()}`,
-                )
-                setDobPickerOpen(false)
-              }}
-              styles={datepickerStyles}
-            />
-          </Pressable>
-        </Pressable>
-      </Modal>
     </View>
   )
 }
@@ -394,16 +345,5 @@ const styles = StyleSheet.create({
   errorBullet: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  modalCard: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    overflow: 'hidden',
   },
 })
