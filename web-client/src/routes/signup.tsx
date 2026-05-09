@@ -6,6 +6,7 @@ import {
   useRouter,
 } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
+import DateOfBirthPicker from '@/components/DateOfBirthPicker'
 import { apiRequest, getErrorMessage } from '@/lib/api'
 import { isAuthenticated, setAuthSession } from '@/lib/auth'
 
@@ -212,12 +213,9 @@ function SignUp() {
 
           <div>
             <label className="block text-sm font-medium">Date of Birth</label>
-            <input
-              type="date"
+            <DateOfBirthPicker
               value={dateOfBirth}
-              onChange={(e) => setDateOfBirth(e.target.value)}
-              className="mt-1 w-full rounded border px-3 py-2"
-              required
+              onChange={setDateOfBirth}
             />
           </div>
 

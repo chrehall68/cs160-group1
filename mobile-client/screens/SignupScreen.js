@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   ScrollView,
   Text,
@@ -7,9 +7,20 @@ import {
   StyleSheet,
   TouchableOpacity,
   KeyboardAvoidingView,
+  Modal,
+  Pressable,
   Platform,
 } from 'react-native'
+import DateTimePicker, { useDefaultStyles } from 'react-native-ui-datepicker'
 import { signup } from '../lib/queries'
+
+const pad = (n) => String(n).padStart(2, '0')
+
+const toDate = (d) => {
+  if (d instanceof Date) return d
+  if (d && typeof d.toDate === 'function') return d.toDate()
+  return new Date(d)
+}
 
 export default function SignupScreen({ goToLogin, onLogin }) {
   const [form, setForm] = useState({
@@ -32,6 +43,7 @@ export default function SignupScreen({ goToLogin, onLogin }) {
 
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [dobPickerOpen, setDobPickerOpen] = useState(false)
 
   const update = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -39,17 +51,24 @@ export default function SignupScreen({ goToLogin, onLogin }) {
 
   const digitsOnly = (value) => value.replace(/\D/g, '')
 
-  const formatDOB = (value) => {
-    const digits = value.replace(/\D/g, '').slice(0, 8)
+  const dobBounds = useMemo(() => {
+    const today = new Date()
+    const min = new Date(
+      today.getFullYear() - 150,
+      today.getMonth(),
+      today.getDate(),
+    )
+    return { minDate: min, maxDate: today }
+  }, [])
 
-    if (digits.length >= 5) {
-      return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`
-    } else if (digits.length >= 3) {
-      return `${digits.slice(0, 2)}/${digits.slice(2)}`
-    }
+  // form.dob is stored as MM/DD/YYYY; expose a Date for the picker
+  const dobDate = (() => {
+    const [m, d, y] = form.dob.split('/')
+    if (!m || !d || !y) return undefined
+    return new Date(Number(y), Number(m) - 1, Number(d))
+  })()
 
-    return digits
-  }
+  const datepickerStyles = useDefaultStyles()
 
   const formatDOBForAPI = (dob) => {
     const [m, d, y] = dob.split('/')
@@ -142,13 +161,17 @@ export default function SignupScreen({ goToLogin, onLogin }) {
                 <Input half label="Last Name" value={form.lastName} onChange={(v) => update('lastName', v)} />
               </Row>
 
-              <Input
-                label="Date of Birth (MM/DD/YYYY)"
-                value={form.dob}
-                onChange={(v) => update('dob', formatDOB(v))}
-                keyboardType="number-pad"
-                maxLength={10}
-              />
+              <View style={styles.field}>
+                <Text style={styles.label}>Date of Birth</Text>
+                <TouchableOpacity
+                  style={styles.input}
+                  onPress={() => setDobPickerOpen(true)}
+                >
+                  <Text style={{ color: form.dob ? '#000' : '#999' }}>
+                    {form.dob || 'Select your date of birth'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
 
               <Input
                 label="Email"
@@ -211,6 +234,38 @@ export default function SignupScreen({ goToLogin, onLogin }) {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <Modal
+        visible={dobPickerOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDobPickerOpen(false)}
+      >
+        <Pressable
+          style={styles.modalBackdrop}
+          onPress={() => setDobPickerOpen(false)}
+        >
+          <Pressable style={styles.modalCard}>
+            <DateTimePicker
+              mode="single"
+              date={dobDate}
+              minDate={dobBounds.minDate}
+              maxDate={dobBounds.maxDate}
+              initialView="year"
+              onChange={({ date }) => {
+                if (!date) return
+                const d = toDate(date)
+                update(
+                  'dob',
+                  `${pad(d.getMonth() + 1)}/${pad(d.getDate())}/${d.getFullYear()}`,
+                )
+                setDobPickerOpen(false)
+              }}
+              styles={datepickerStyles}
+            />
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   )
 }
@@ -339,5 +394,16 @@ const styles = StyleSheet.create({
   errorBullet: {
     flexDirection: 'row',
     alignItems: 'flex-start',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    overflow: 'hidden',
   },
 })
