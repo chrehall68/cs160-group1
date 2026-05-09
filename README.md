@@ -22,33 +22,43 @@ The system follows a 3-tier architecture:
 - **Mobile Client** (React Native / Expo)
 - **Backend API** (FastAPI)
 
-### To Run Web Client
+### To Run All Services with Docker Compose (Recommended)
+
+To run the web client, backend, and database together in development mode:
+
+First, make sure you create a `.env` file with your Google API key,
+Plaid Client ID, Plaid (Sandbox) Secret, and AWS credentials.
+
+Example:
+
+```
+# (.env file)
+GOOGLE_API_KEY=<YOUR_GOOGLE_API_KEY>
+PLAID_CLIENT_ID=<YOUR_PLAID_CLIENT_ID>
+PLAID_SECRET=<YOUR_PLAID_SECRET>
+AWS_S3_BUCKET=<YOUR_S3_BUCKET>
+AWS_ACCESS_KEY_ID=<YOUR_AWS_ACCESS_KEY_ID>
+AWS_SECRET_ACCESS_KEY=<YOUR_AWS_SECRET_ACCESS_KEY>
+AWS_DEFAULT_REGION=<YOUR_AWS_DEFAULT_REGION>
+```
+
+Then, you can run:
 
 ```bash
-cd web-client
-npm install
-npm start
+docker compose -f docker-compose.dev.yml up --build
 ```
 
-Runs on:
+This will start:
 
-```
-http://localhost:3000
-```
+- **Frontend** (Web Client): `http://localhost:3000`
+- **Backend API**: `http://localhost:8000`
+- **Database** (PostgreSQL): `localhost:5432`
 
-### To Run Mobile Client
+To stop all services:
 
 ```bash
-cd mobile-client
-npm install
-npm start
+docker compose -f docker-compose.dev.yml down
 ```
-
-Then:
-
-- Press `w` for web preview
-- Press `a` for Android emulator
-- Or scan QR code with Expo Go
 
 ### To Run the Mobile Client with Docker Compose
 
@@ -98,43 +108,137 @@ docker buildx build \
 
 The signed APK lands at `./out/app-release.apk`. Note that you must uninstall any previous version of the app before installing the apk.
 
-### To Run All Services with Docker Compose
+### Running Locally (NOT RECOMMENDED)
 
-To run the web client, backend, and database together in development mode:
+If you want to run the components outside of Docker, follow
+the following instructions.
 
-First, make sure you create a `.env` file with your Google API key,
-Plaid Client ID, Plaid (Sandbox) Secret, and AWS credentials.
+#### To Run the Backend
 
-Example:
+The backend has three processes that can be run independently: the FastAPI
+server, the recurring-payments scheduler, and a one-shot seed runner. All
+three need a running PostgreSQL instance and read the same database
+connection env vars (`DB_USER`, `DB_PASSWORD`, `DB_LOCATION`, `DB_NAME` —
+or `DATABASE_URL` directly).
 
-```
-# (.env file)
-GOOGLE_API_KEY=<YOUR_GOOGLE_API_KEY>
-PLAID_CLIENT_ID=<YOUR_PLAID_CLIENT_ID>
-PLAID_SECRET=<YOUR_PLAID_SECRET>
-AWS_S3_BUCKET=<YOUR_S3_BUCKET>
-AWS_ACCESS_KEY_ID=<YOUR_AWS_ACCESS_KEY_ID>
-AWS_SECRET_ACCESS_KEY=<YOUR_AWS_SECRET_ACCESS_KEY>
-AWS_DEFAULT_REGION=<YOUR_AWS_DEFAULT_REGION>
-```
-
-Then, you can run:
+The fastest way to get a database is the one started by the dev compose
+file:
 
 ```bash
-docker compose -f docker-compose.dev.yml up --build
+docker compose -f docker-compose.dev.yml up -d database
 ```
 
-This will start:
+As such, we highly recommend simply using
+the steps in [To Run All Services with Docker Compose (Recommended)](#to-run-all-services-with-docker-compose-recommended).
+If you want to run the database locally,
+you'll need to install postgres and create a new database in postgres.
+Make sure the user is `postgres`, the password is `postgres`
+and the database is called `postgres`.
 
-- **Frontend** (Web Client): `http://localhost:3000`
-- **Backend API**: `http://localhost:8000`
-- **Database** (PostgreSQL): `localhost:5432`
-
-To stop all services:
+After setting up your database, install the Python dependencies once.
 
 ```bash
-docker compose -f docker-compose.dev.yml down
+cd backend
+uv venv --python 3.12
+uv pip install -r requirements.txt --python .venv/bin/python
 ```
+
+**Seeder** — populates the database from a SQL file. Run it once before
+starting the API server.
+`SEED_FILE` points at the SQL file to apply:
+
+```bash
+cd backend/src
+DB_USER=postgres DB_PASSWORD=postgres DB_LOCATION=localhost DB_NAME=postgres \
+    SEED_FILE=../seeds/default.sql \
+    ../.venv/bin/python -m seed
+```
+
+**API server** — needs the DB vars plus `JWT_SECRET_KEY`, `GOOGLE_API_KEY`,
+`PLAID_CLIENT_ID`, `PLAID_SECRET`, and the four `AWS_*` vars (same set as
+[To Run All Services with Docker Compose (Recommended)](#to-run-all-services-with-docker-compose-recommended)
+above):
+
+```bash
+cd backend
+DB_USER=postgres DB_PASSWORD=postgres DB_LOCATION=localhost DB_NAME=postgres \
+    JWT_SECRET_KEY=<long random string> \
+    GOOGLE_API_KEY=<...> PLAID_CLIENT_ID=<...> PLAID_SECRET=<...> \
+    AWS_ACCESS_KEY_ID=<...> AWS_SECRET_ACCESS_KEY=<...> \
+    AWS_DEFAULT_REGION=<...> AWS_S3_BUCKET=<...> \
+    ./.venv/bin/fastapi dev src/app.py
+```
+
+The server listens on `http://localhost:8000`.
+
+**Scheduler** — only needs the DB vars. Run it as a sibling to the API
+server (it polls for due recurring payments and processes them):
+
+```bash
+cd backend/src
+DB_USER=postgres DB_PASSWORD=postgres DB_LOCATION=localhost DB_NAME=postgres \
+    ../.venv/bin/python -m scheduler
+```
+
+#### To Run Web Client
+
+The frontend proxies API requests to the backend, so it needs
+`VITE_BACKEND_URL` pointing at a running backend (e.g. the local API
+server above):
+
+```bash
+cd web-client
+npm install
+VITE_BACKEND_URL=http://localhost:8000 npm run dev
+```
+
+Runs on:
+
+```
+http://localhost:3000
+```
+
+#### To Run Mobile Client
+
+The mobile client also needs to know where the backend lives, via
+`EXPO_PUBLIC_BACKEND_URL`. Note that `http://localhost:8000` will **not**
+work over Expo Go: the URL is evaluated on your phone, not on the host
+machine, so `localhost` resolves to the phone itself. The phone needs a
+URL it can actually reach.
+
+The simplest fix is to expose the local backend with [ngrok](https://ngrok.com/)
+on the host machine:
+
+```bash
+ngrok http 8000
+```
+
+ngrok prints a public `https://...ngrok-free.app` URL — use that as
+`EXPO_PUBLIC_BACKEND_URL`:
+
+```bash
+cd mobile-client
+npm install
+EXPO_PUBLIC_BACKEND_URL=https://<your-subdomain>.ngrok-free.app npm start
+```
+
+`http://localhost:8000` is fine if you are only using the web preview
+(`w`) or an emulator running on the same host; only Expo Go on a physical
+phone needs the public URL.
+
+Then:
+
+- Press `w` for web preview
+- Press `a` for Android emulator
+- Or scan QR code with Expo Go
+
+> **Note:** external transfers (the Plaid Link flow) will not work in Expo Go.
+> Plaid's SDK ships as a native module, and Expo Go bundles only a fixed set
+> of native modules — it cannot load arbitrary third-party native code. Every
+> other screen works fine over Expo Go. To use external transfers, build
+> and install the release APK via
+> [Dockerfile.apk](mobile-client/Dockerfile.apk) (see the APK section above);
+> that build has the Plaid native module compiled in.
 
 ## Deployment
 
@@ -260,10 +364,12 @@ The backend integration tests use `testcontainers` to start a real PostgreSQL
 database automatically. They do not use an in-memory database, because the app
 is built around PostgreSQL-specific behavior.
 
-To run the backend tests:
+To run the backend tests (matching the `python:3.12-alpine` base image
+used by the Dockerfiles):
 
 ```bash
 cd backend
+uv venv --python 3.12
 uv pip install -r requirements.txt --python .venv/bin/python
 ./.venv/bin/python -m pytest tests
 ```
